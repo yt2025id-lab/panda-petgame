@@ -8,6 +8,7 @@ import CreatePandaInitializer from './components/CreatePandaInitializer';
 import CreateCosmeticInitializer from './components/CreateCosmeticInitializer';
 import useQueryPandas from './hooks/useQueryPandas';
 import useQueryCosmetics from './hooks/useQueryCosmetics';
+import { WalletButton } from './components/WalletButton';
 
 const App: React.FC = () => {
   // Blockchain state
@@ -241,11 +242,15 @@ const App: React.FC = () => {
                   <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black uppercase text-gray-700">XP</span>
                 </div>
               </div>
-              <div
-                onClick={() => setActiveMenu(activeMenu === 'COINS' ? 'NONE' : 'COINS')}
-                className="cursor-pointer bg-yellow-400 border-4 border-gray-800 rounded-full px-4 py-2 font-game text-xl shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 transition-transform flex items-center gap-2"
-              >
-                💰 <span className="text-gray-900">{coins}</span>
+              <div className="flex gap-4">
+
+                <div
+                  onClick={() => setActiveMenu(activeMenu === 'COINS' ? 'NONE' : 'COINS')}
+                  className="cursor-pointer bg-yellow-400 border-4 border-gray-800 rounded-full px-4 py-2 font-game text-xl shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 transition-transform flex items-center gap-2"
+                >
+                  💰 <span className="text-gray-900">{coins}</span>
+                </div>
+                <WalletButton />
               </div>
             </div>
             <div className="flex justify-between gap-2 overflow-x-auto pb-1 no-scrollbar">
