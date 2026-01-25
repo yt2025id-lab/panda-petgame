@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect, useCallback } from 'react';
 import { PetStats, FoodItem, GameMessage, MissionStatus, ToyItem } from './components/type';
-import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, MISSIONS, TOY_ITEMS, getPandaDialogue } from './components/constant';
+import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, MISSIONS, getPandaDialogue } from './components/constant';
 import StatBar from './components/StatBar';
 import Panda from './components/Panda';
 import CreatePandaInitializer from './components/CreatePandaInitializer';
@@ -27,8 +27,6 @@ const App: React.FC = () => {
   const [isSleeping, setIsSleeping] = useState(false);
   const [isEating, setIsEating] = useState(false);
   const [isWashing, setIsWashing] = useState(false);
-  const [isBouncing, setIsBouncing] = useState(false);
-  const [activeToyAnimation, setActiveToyAnimation] = useState<string | null>(null);
   const [messages, setMessages] = useState<GameMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -133,11 +131,6 @@ const App: React.FC = () => {
 
   const playWithToy = (toy: ToyItem) => {
     if (stats.energy < toy.energyCost || isSleeping) return;
-    setIsBouncing(true);
-    if (toy.animation) {
-      setActiveToyAnimation(toy.animation);
-      setTimeout(() => setActiveToyAnimation(null), 2000);
-    }
     setStats(prev => ({
       ...prev,
       fun: Math.min(100, prev.fun + toy.funValue),
@@ -148,7 +141,6 @@ const App: React.FC = () => {
     if (Math.random() < 0.3) {
       handlePandaTalk(`Wheee! Playing with my ${toy.name}! ${toy.emoji}`);
     }
-    setTimeout(() => setIsBouncing(false), 2000);
   };
 
   const claimMission = (missionId: string) => {
@@ -302,8 +294,6 @@ const App: React.FC = () => {
                 isSleeping={isSleeping}
                 isEating={isEating}
                 isWashing={isWashing}
-                isBouncing={isBouncing}
-                activeToyAnimation={activeToyAnimation}
                 mousePos={mousePos}
                 equippedCosmeticId={equippedCosmeticId}
                 equippedCosmetic={ownedCosmetics.find(c => c.objectId === equippedCosmeticId)}
