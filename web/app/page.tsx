@@ -9,6 +9,8 @@ import CreateCosmeticInitializer from './components/CreateCosmeticInitializer';
 import useQueryPandas from './hooks/useQueryPandas';
 import useQueryCosmetics from './hooks/useQueryCosmetics';
 import { WalletButton } from './components/WalletButton';
+import BallShooter from './components/minigames/BallShooter';
+import BambooCatcher from './components/minigames/BambooCatcher';
 
 const App: React.FC = () => {
   // Blockchain state
@@ -37,6 +39,7 @@ const App: React.FC = () => {
   const [missionStatuses, setMissionStatuses] = useState<MissionStatus[]>(
     MISSIONS.map(m => ({ missionId: m.id, progress: 0, claimed: false }))
   );
+  const [activeMinigame, setActiveMinigame] = useState<'NONE' | 'BALLSHOOTER' | 'BAMBOOCATCHER'>('NONE');
 
   // Check if user has created a Panda on blockchain
   useEffect(() => {
@@ -194,6 +197,14 @@ const App: React.FC = () => {
     else if (draggedToy) playWithToy(draggedToy);
   };
 
+  const handleMinigameEnd = (score: number, xpEarned: number, coinsEarned: number) => {
+    addXP(xpEarned);
+    setCoins(prev => prev + coinsEarned);
+    setActiveMinigame('NONE');
+    handlePandaTalk(`Awesome game! Earned ${xpEarned} XP and ${coinsEarned} coins! 🎉`);
+    updateMissionProgress('play', score);
+  };
+
   return (
     <div className={`fixed inset-0 transition-colors duration-1000 ${isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
 
@@ -205,6 +216,20 @@ const App: React.FC = () => {
           }}
           coins={coins}
           onSpendCoins={(amount) => setCoins(prev => Math.max(0, prev - amount))}
+        />
+      )}
+
+      {/* Minigame Modals */}
+      {activeMinigame === 'BALLSHOOTER' && (
+        <BallShooter
+          onClose={() => setActiveMinigame('NONE')}
+          onGameEnd={handleMinigameEnd}
+        />
+      )}
+      {activeMinigame === 'BAMBOOCATCHER' && (
+        <BambooCatcher
+          onClose={() => setActiveMinigame('NONE')}
+          onGameEnd={handleMinigameEnd}
         />
       )}
 
@@ -312,26 +337,27 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Play Tray Overlay */}
+            {/* Play Menu - Minigames */}
             {activeMenu === 'PLAY' && !isSleeping && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-full duration-300 z-30 w-full max-w-sm px-4">
                 <div className="text-[10px] font-black bg-blue-500 text-white px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg mb-[-10px] z-10 border-2 border-white">
-                  Toss a toy!
+                  Choose a minigame!
                 </div>
                 <div className="flex gap-4 p-5 bg-white border-8 border-gray-800 rounded-[2.5rem] shadow-[0_12px_0_#2d2d2d] overflow-x-auto w-full no-scrollbar">
-                  {TOY_ITEMS.map(toy => (
-                    <div
-                      key={toy.id}
-                      draggable
-                      onDragStart={() => { setDraggedToy(toy); setDraggedFood(null); }}
-                      onDragEnd={() => setDraggedToy(null)}
-                      onClick={() => playWithToy(toy)}
-                      className="flex-shrink-0 bg-blue-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-blue-100 transition-all cursor-grab active:cursor-grabbing hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
-                    >
-                      <div className="text-4xl">{toy.emoji}</div>
-                      <div className="text-xs font-black mt-2 text-gray-800">-{toy.energyCost}⚡</div>
-                    </div>
-                  ))}
+                  <div
+                    onClick={() => setActiveMinigame('BALLSHOOTER')}
+                    className="flex-shrink-0 bg-blue-50 border-4 border-gray-800 p-4 rounded-2xl hover:bg-blue-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
+                  >
+                    <div className="text-4xl">⚽</div>
+                    <div className="text-xs font-black mt-2 text-gray-800 text-center">Ball Shooter</div>
+                  </div>
+                  <div
+                    onClick={() => setActiveMinigame('BAMBOOCATCHER')}
+                    className="flex-shrink-0 bg-green-50 border-4 border-gray-800 p-4 rounded-2xl hover:bg-green-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
+                  >
+                    <div className="text-4xl">🎋</div>
+                    <div className="text-xs font-black mt-2 text-gray-800 text-center">Bamboo Catcher</div>
+                  </div>
                 </div>
               </div>
             )}
