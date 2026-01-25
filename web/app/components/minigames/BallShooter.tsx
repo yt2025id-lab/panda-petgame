@@ -20,7 +20,6 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
   const [goalDirection, setGoalDirection] = useState(1); // 1 for right, -1 for left
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; type: string }[]>([]);
-  const [isBouncing, setIsBouncing] = useState(false);
   const [frozenTrajectoryAngle, setFrozenTrajectoryAngle] = useState<number | null>(null);
   
   const gameRef = useRef<HTMLDivElement>(null);
@@ -133,8 +132,6 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
         ) {
           // Goal scored!
           setScore(s => s + 1);
-          setIsBouncing(true);
-          setTimeout(() => setIsBouncing(false), 600);
 
           // Add particles
           const newParticles = [
@@ -347,8 +344,6 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
                   isSleeping={false}
                   isEating={false}
                   isWashing={false}
-                  isBouncing={isBouncing}
-                  activeToyAnimation={null}
                   mousePos={mousePos}
                   equippedCosmeticId={null}
                   onClick={() => {}}

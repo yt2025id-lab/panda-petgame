@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect, useCallback } from 'react';
-import { PetStats, FoodItem, GameMessage, CosmeticItem, MissionStatus, ToyItem } from './components/type';
-import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, COSMETIC_ITEMS, MISSIONS, TOY_ITEMS, getPandaDialogue } from './components/constant';
+import { PetStats, FoodItem, GameMessage, CosmeticItem, MissionStatus } from './components/type';
+import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, COSMETIC_ITEMS, MISSIONS, getPandaDialogue } from './components/constant';
 import StatBar from './components/StatBar';
 import Panda from './components/Panda';
 import BambooCatcher from './components/minigames/BambooCatcher';
@@ -14,13 +14,10 @@ const App: React.FC = () => {
   const [isSleeping, setIsSleeping] = useState(false);
   const [isEating, setIsEating] = useState(false);
   const [isWashing, setIsWashing] = useState(false);
-  const [isBouncing, setIsBouncing] = useState(false);
-  const [activeToyAnimation, setActiveToyAnimation] = useState<string | null>(null);
   const [messages, setMessages] = useState<GameMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [draggedFood, setDraggedFood] = useState<FoodItem | null>(null);
-  const [draggedToy, setDraggedToy] = useState<ToyItem | null>(null);
   const [activeMenu, setActiveMenu] = useState<'NONE' | 'KITCHEN' | 'PLAY' | 'COINS' | 'COSMETIC'>('NONE');
   const [ownedCosmetics, setOwnedCosmetics] = useState<string[]>([]);
   const [equippedCosmeticId, setEquippedCosmeticId] = useState<string | null>(null);
@@ -108,26 +105,6 @@ const App: React.FC = () => {
     setTimeout(() => setIsEating(false), 2000);
   };
 
-  const playWithToy = (toy: ToyItem) => {
-    if (stats.energy < toy.energyCost || isSleeping) return;
-    setIsBouncing(true);
-    if (toy.animation) {
-      setActiveToyAnimation(toy.animation);
-      setTimeout(() => setActiveToyAnimation(null), 2000);
-    }
-    setStats(prev => ({
-      ...prev,
-      fun: Math.min(100, prev.fun + toy.funValue),
-      energy: Math.max(0, prev.energy - toy.energyCost)
-    }));
-    addXP(20);
-    updateMissionProgress('play');
-    if (Math.random() < 0.3) {
-      handlePandaTalk(`Wheee! Playing with my ${toy.name}! ${toy.emoji}`);
-    }
-    setTimeout(() => setIsBouncing(false), 2000);
-  };
-
   const buyCosmetic = (item: CosmeticItem) => {
     if (ownedCosmetics.includes(item.id)) {
       setEquippedCosmeticId(prev => prev === item.id ? null : item.id);
@@ -183,7 +160,6 @@ const App: React.FC = () => {
 
   const handleDropItem = () => {
     if (draggedFood) feedPet(draggedFood);
-    else if (draggedToy) playWithToy(draggedToy);
   };
 
   const handleMinigameEnd = (score: number, xpEarned: number, coinsEarned: number) => {
@@ -263,8 +239,6 @@ const App: React.FC = () => {
             isSleeping={isSleeping}
             isEating={isEating}
             isWashing={isWashing}
-            isBouncing={isBouncing}
-            activeToyAnimation={activeToyAnimation}
             mousePos={mousePos}
             equippedCosmeticId={equippedCosmeticId}
             onClick={() => !isSleeping && handlePandaTalk("Ouch! That tickles!")}
@@ -284,7 +258,7 @@ const App: React.FC = () => {
                 <div
                   key={food.id}
                   draggable
-                  onDragStart={() => { setDraggedFood(food); setDraggedToy(null); }}
+                  onDragStart={() => setDraggedFood(food)}
                   onDragEnd={() => setDraggedFood(null)}
                   onClick={() => feedPet(food)}
                   className="flex-shrink-0 bg-orange-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-orange-100 transition-all cursor-grab active:cursor-grabbing hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
@@ -301,22 +275,32 @@ const App: React.FC = () => {
         {activeMenu === 'PLAY' && !isSleeping && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-full duration-300 z-30 w-full max-w-sm px-4">
             <div className="text-[10px] font-black bg-blue-500 text-white px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg mb-[-10px] z-10 border-2 border-white">
-              Toss a toy!
+              Pick a Minigame!
             </div>
             <div className="flex gap-4 p-5 bg-white border-8 border-gray-800 rounded-[2.5rem] shadow-[0_12px_0_#2d2d2d] overflow-x-auto w-full no-scrollbar">
-              {TOY_ITEMS.map(toy => (
-                <div
-                  key={toy.id}
-                  draggable
-                  onDragStart={() => { setDraggedToy(toy); setDraggedFood(null); }}
-                  onDragEnd={() => setDraggedToy(null)}
-                  onClick={() => playWithToy(toy)}
-                  className="flex-shrink-0 bg-blue-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-blue-100 transition-all cursor-grab active:cursor-grabbing hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
-                >
-                  <div className="text-4xl">{toy.emoji}</div>
-                  <div className="text-xs font-black mt-2 text-gray-800">-{toy.energyCost}⚡</div>
-                </div>
-              ))}
+              {/* Bamboo Catcher */}
+              <div
+                onClick={() => {
+                  setIsMinigameOpen(true);
+                  setActiveMenu('NONE');
+                }}
+                className="flex-shrink-0 bg-blue-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-blue-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
+              >
+                <div className="text-4xl">🎋</div>
+                <div className="text-xs font-black mt-2 text-gray-800">Bamboo</div>
+              </div>
+              
+              {/* Ball Shooter */}
+              <div
+                onClick={() => {
+                  setIsBallMinigameOpen(true);
+                  setActiveMenu('NONE');
+                }}
+                className="flex-shrink-0 bg-blue-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-blue-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
+              >
+                <div className="text-4xl">⚽</div>
+                <div className="text-xs font-black mt-2 text-gray-800">Shooter</div>
+              </div>
             </div>
           </div>
         )}
@@ -475,8 +459,6 @@ const App: React.FC = () => {
       {/* Bottom Navigation */}
       <div className="p-6 bg-white/40 backdrop-blur-md border-t-4 border-gray-800 flex justify-around items-center z-40">
         <NavButton icon="🎮" label="Play" onClick={() => setActiveMenu(activeMenu === 'PLAY' ? 'NONE' : 'PLAY')} active={activeMenu === 'PLAY'} />
-        <NavButton icon="🎋" label="Bamboo" onClick={() => setIsMinigameOpen(true)} active={false} />
-        <NavButton icon="⚽" label="Shooter" onClick={() => setIsBallMinigameOpen(true)} active={false} />
         <NavButton icon="🥘" label="Kitchen" onClick={() => setActiveMenu(activeMenu === 'KITCHEN' ? 'NONE' : 'KITCHEN')} active={activeMenu === 'KITCHEN'} />
         <NavButton icon="👗" label="Cosmetic" onClick={() => setActiveMenu(activeMenu === 'COSMETIC' ? 'NONE' : 'COSMETIC')} active={activeMenu === 'COSMETIC'} />
         <NavButton icon="🧼" label="Wash" onClick={washPet} active={isWashing} />

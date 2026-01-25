@@ -21,7 +21,6 @@ const BambooCatcher: React.FC<BambooCatcherProps> = ({ onClose, onGameEnd }) => 
   const [lives, setLives] = useState(3);
   const [bamboos, setBamboos] = useState<Bamboo[]>([]);
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; type: string }[]>([]);
-  const [isBouncing, setIsBouncing] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const gameRef = useRef<HTMLDivElement>(null);
   const bambooIdRef = useRef(0);
@@ -118,10 +117,6 @@ const BambooCatcher: React.FC<BambooCatcherProps> = ({ onClose, onGameEnd }) => 
       { id: particleIdRef.current++, x: x - 20, y: y - 10, type: '✨' }
     ];
     setParticles(prev => [...prev, ...newParticles]);
-
-    // Panda bounce animation
-    setIsBouncing(true);
-    setTimeout(() => setIsBouncing(false), 600);
 
     // Level up every 5 catches
     if ((score + 1) % 5 === 0) {
@@ -242,8 +237,6 @@ const BambooCatcher: React.FC<BambooCatcherProps> = ({ onClose, onGameEnd }) => 
                   isSleeping={false}
                   isEating={false}
                   isWashing={false}
-                  isBouncing={isBouncing}
-                  activeToyAnimation={null}
                   mousePos={mousePos}
                   equippedCosmeticId={null}
                   onClick={() => {}}
