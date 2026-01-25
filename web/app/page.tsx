@@ -8,6 +8,7 @@ import CreatePandaInitializer from './components/CreatePandaInitializer';
 import CreateCosmeticInitializer from './components/CreateCosmeticInitializer';
 import useQueryPandas from './hooks/useQueryPandas';
 import useQueryCosmetics from './hooks/useQueryCosmetics';
+import useEquipCosmetic from './hooks/useEquipCosmetic';
 import { WalletButton } from './components/WalletButton';
 import BallShooter from './components/minigames/BallShooter';
 import BambooCatcher from './components/minigames/BambooCatcher';
@@ -19,6 +20,17 @@ const App: React.FC = () => {
   const [showCosmeticMinter, setShowCosmeticMinter] = useState(false);
   const { data: ownedPandas = [], isLoading: isLoadingPandas } = useQueryPandas();
   const { data: ownedCosmetics = [] } = useQueryCosmetics();
+
+  // Cosmetic equipment hook
+  const { mutateAsync: equipCosmetic, isPending: isEquipping } = useEquipCosmetic({
+    onSuccess: () => {
+      handlePandaTalk("I love my new cosmetic! ✨");
+    },
+    onError: (error) => {
+      console.error("Failed to equip cosmetic:", error);
+      handlePandaTalk("Oh no! Failed to equip cosmetic.");
+    },
+  });
 
   // Game state
   const [stats, setStats] = useState<PetStats>(INITIAL_STATS);
@@ -188,6 +200,34 @@ const App: React.FC = () => {
     if (draggedFood) feedPet(draggedFood);
     else if (draggedToy) playWithToy(draggedToy);
   };
+
+  const handleEquipCosmetic = useCallback(async (cosmeticId: string) => {
+    // Check if this is toggling off
+    if (equippedCosmeticId === cosmeticId) {
+      setEquippedCosmeticId(null);
+      handlePandaTalk("I took off my cosmetic.");
+      return;
+    }
+
+    // Get the first panda to equip the cosmetic to
+    if (!ownedPandas || ownedPandas.length === 0) {
+      handlePandaTalk("You need a panda first!");
+      return;
+    }
+
+    try {
+      // Call the equip cosmetic function on blockchain
+      await equipCosmetic({
+        pandaId: ownedPandas[0].objectId,
+        cosmeticId: cosmeticId,
+      });
+
+      // Only update local state after successful blockchain transaction
+      setEquippedCosmeticId(cosmeticId);
+    } catch (error) {
+      console.error("Error equipping cosmetic:", error);
+    }
+  }, [equippedCosmeticId, ownedPandas, equipCosmetic, handlePandaTalk]);
 
   const handleMinigameEnd = (score: number, xpEarned: number, coinsEarned: number) => {
     addXP(xpEarned);
@@ -365,13 +405,13 @@ const App: React.FC = () => {
                       return (
                         <div
                           key={cosmetic.objectId}
-                          onClick={() => setEquippedCosmeticId(prev => prev === cosmetic.objectId ? null : cosmetic.objectId)}
-                          className={`flex-shrink-0 p-3 rounded-2xl border-4 border-gray-800 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center ${isEquipped ? 'bg-green-100' : 'bg-pink-50'}`}
+                          onClick={() => handleEquipCosmetic(cosmetic.objectId)}
+                          className={`flex-shrink-0 p-3 rounded-2xl border-4 border-gray-800 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center ${isEquipped ? 'bg-green-100' : 'bg-pink-50'} ${isEquipping ? 'opacity-50 pointer-events-none' : ''}`}
                         >
                           <div className="text-4xl mb-1">✨</div>
                           <div className="text-[9px] font-black text-center text-gray-800 mb-1 max-w-[60px] line-clamp-2">{cosmetic.fields.name}</div>
                           <div className={`text-[8px] font-black px-1 py-0.5 rounded border-2 border-gray-800 uppercase ${isEquipped ? 'bg-green-400' : 'bg-pink-400 text-white'}`}>
-                            {isEquipped ? 'ON' : 'OFF'}
+                            {isEquipping ? 'LOADING...' : isEquipped ? 'ON' : 'OFF'}
                           </div>
                         </div>
                       );
@@ -490,11 +530,11 @@ const App: React.FC = () => {
                               return (
                                 <div
                                   key={cosmetic.objectId}
-                                  onClick={() => setEquippedCosmeticId(prev => prev === cosmetic.objectId ? null : cosmetic.objectId)}
+                                  onClick={() => handleEquipCosmetic(cosmetic.objectId)}
                                   className={`
                                 flex flex-col items-center justify-between border-4 border-gray-800 p-4 rounded-[2rem] transition-all cursor-pointer 
                                 hover:-translate-y-1 shadow-[4px_4px_0px_#2d2d2d] active:shadow-none active:translate-y-1
-                                ${isEquipped ? 'bg-green-100' : 'bg-white'}
+                                ${isEquipped ? 'bg-green-100' : 'bg-white'} ${isEquipping ? 'opacity-50 pointer-events-none' : ''}
                               `}
                                 >
                                   <div className="text-4xl mb-2">✨</div>
@@ -502,7 +542,7 @@ const App: React.FC = () => {
                                     <p className="text-center font-bold text-gray-800 mb-2 text-sm line-clamp-2">{cosmetic.fields.name}</p>
                                     <div className={`text-center py-1 rounded-2xl border-4 border-gray-800 font-black uppercase text-xs ${isEquipped ? 'bg-green-400' : 'bg-blue-400 text-white'
                                       }`}>
-                                      {isEquipped ? 'Equipped' : 'Equip'}
+                                      {isEquipping ? 'LOADING...' : isEquipped ? 'Equipped' : 'Equip'}
                                     </div>
                                   </div>
                                 </div>
