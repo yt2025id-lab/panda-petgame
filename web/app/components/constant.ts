@@ -57,6 +57,7 @@ const PANDA_DIALOGUE = {
   sad: ['I\'m bored... 😔', 'Can we play? 🥺', 'I feel lonely...', 'Cheer me up! 😞'],
   dirty: ['I need a bath! 🧼', 'I\'m so dirty... 🤢', 'Can I have a wash? 🛁', 'Eww, I\'m muddy! 🙈'],
   sick: ['I don\'t feel well... 🤒', 'I\'m not feeling great...', 'Help me feel better! 💊', 'My tummy hurts... 😖'],
+  minigame: ['Let\'s play bamboo catcher! 🎋', 'Minigames are fun! 🎮', 'Ready to catch some bamboo? 🌱', 'Let\'s see how good you are! 🏆', 'Bring it on! 💪'],
   default: ['Hello! 👋', 'What\'s up? 🐼', 'How are you? 😊', 'I\'m here! 🎀', 'Hiya! 👋', 'Nice to see you! 💚'],
 };
 

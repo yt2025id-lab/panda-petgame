@@ -16,8 +16,6 @@ interface PandaProps {
   isSleeping: boolean;
   isEating: boolean;
   isWashing: boolean;
-  isBouncing: boolean;
-  activeToyAnimation: string | null;
   mousePos: { x: number; y: number };
   equippedCosmeticId: string | null;
   equippedCosmetic?: CosmeticItem | null;
@@ -31,8 +29,6 @@ const Panda: React.FC<PandaProps> = ({
   isSleeping,
   isEating,
   isWashing,
-  isBouncing,
-  activeToyAnimation,
   mousePos,
   equippedCosmeticId,
   equippedCosmetic,
@@ -72,7 +68,6 @@ const Panda: React.FC<PandaProps> = ({
     if (isSleeping) return '😴';
     if (isEating) return '😋';
     if (isWashing) return '🧼';
-    if (isBouncing) return '🤩';
     if (stats.hunger < 20) return '😫';
     if (stats.fun < 20) return '😢';
     if (stats.energy < 20) return '🥱';
@@ -136,12 +131,8 @@ const Panda: React.FC<PandaProps> = ({
     <div
       ref={pandaRef}
       className={`relative cursor-grab active:cursor-grabbing transform-gpu
-        ${activeToyAnimation === 'bounce' ? 'panda-jump' :
-          activeToyAnimation === 'spin' ? 'panda-spin' :
-            activeToyAnimation === 'wiggle' ? 'panda-wiggle' :
-              activeToyAnimation === 'shake' ? 'panda-shake' :
-                isEating ? 'panda-jiggle' :
-                  (isBouncing || isJumping) ? 'panda-jump' : 'float-animation'} 
+        ${isEating ? 'panda-jiggle' :
+          isJumping ? 'panda-jump' : 'float-animation'} 
         ${isOver ? 'scale-110 rotate-2' : 'scale-100'}
         smooth-transition`}
       onPointerMove={handlePointerMove}
@@ -230,7 +221,6 @@ const Panda: React.FC<PandaProps> = ({
         <g className={`smooth-transition ${isEating ? 'chew-animation' : ''}`}>
           {expression === '😊' && <path d="M100,185 Q120,205 140,185" stroke="#2D2D2D" strokeWidth="4" fill="none" strokeLinecap="round" />}
           {expression === '😋' && <path d="M100,185 Q120,215 140,185" stroke="#2D2D2D" strokeWidth="4" fill="#FF8A80" strokeLinecap="round" />}
-          {expression === '🤩' && <path d="M100,185 Q120,225 140,185" stroke="#FF4081" strokeWidth="4" fill="#FF80AB" strokeLinecap="round" />}
           {(expression === '😫' || expression === '😢') && <path d="M100,195 Q120,175 140,195" stroke="#2D2D2D" strokeWidth="4" fill="none" strokeLinecap="round" />}
           {expression === '🥱' && <circle cx="120" cy="195" r="8" fill="#2D2D2D" />}
           {expression === '😴' && <path d="M105,190 H135" stroke="#2D2D2D" strokeWidth="4" fill="none" strokeLinecap="round" />}
@@ -300,7 +290,7 @@ const Panda: React.FC<PandaProps> = ({
       </svg>
 
       {/* Bubble Message */}
-      {(isEating || isWashing || isBouncing) && (
+      {(isEating || isWashing) && (
         <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-full border-4 border-gray-800 shadow-lg text-2xl animate-bounce">
           {expression}
         </div>
