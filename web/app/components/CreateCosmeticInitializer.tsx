@@ -155,18 +155,7 @@ export default function CreateCosmeticInitializer({ onSuccess, coins = 0, onSpen
                                         </div>
 
                                         {/* Custom Name Input */}
-                                        <div className="mb-6 text-left">
-                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block px-2">
-                                                Label Your Swag (Optional)
-                                            </label>
-                                            <input
-                                                type="text"
-                                                placeholder={`e.g. My ${selectedCosmetic.name}`}
-                                                value={customName}
-                                                onChange={(e) => setCustomName(e.target.value)}
-                                                className="w-full px-5 py-4 bg-white border-4 border-gray-800 rounded-3xl font-bold focus:outline-none focus:ring-8 focus:ring-pink-100 transition-all placeholder:text-gray-300"
-                                            />
-                                        </div>
+
 
                                         {/* Insufficient Coins Warning */}
                                         {coins < selectedCosmetic.cost && (
