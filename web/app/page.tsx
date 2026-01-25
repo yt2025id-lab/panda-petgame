@@ -4,7 +4,8 @@ import { PetStats, FoodItem, GameMessage, CosmeticItem, MissionStatus, ToyItem }
 import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, COSMETIC_ITEMS, MISSIONS, TOY_ITEMS, getPandaDialogue } from './components/constant';
 import StatBar from './components/StatBar';
 import Panda from './components/Panda';
-import MinigameModal from './components/MinigameModal';
+import BambooCatcher from './components/minigames/BambooCatcher';
+import BallShooter from './components/minigames/BallShooter';
 
 const App: React.FC = () => {
   const [stats, setStats] = useState<PetStats>(INITIAL_STATS);
@@ -27,6 +28,7 @@ const App: React.FC = () => {
     MISSIONS.map(m => ({ missionId: m.id, progress: 0, claimed: false }))
   );
   const [isMinigameOpen, setIsMinigameOpen] = useState(false);
+  const [isBallMinigameOpen, setIsBallMinigameOpen] = useState(false);
   const handlePandaTalk = async (customMessage?: string) => {
     if (isThinking || isSleeping) return;
     setIsThinking(true);
@@ -187,8 +189,32 @@ const App: React.FC = () => {
   const handleMinigameEnd = (score: number, xpEarned: number, coinsEarned: number) => {
     setCoins(prev => prev + coinsEarned);
     addXP(xpEarned);
+    
+    // Update stats based on minigame performance
+    setStats(prev => ({
+      ...prev,
+      fun: Math.min(100, prev.fun + 20), // Playing minigame is fun!
+      hunger: Math.min(100, prev.hunger + score * 0.5), // Caught bamboo = food
+      energy: Math.max(0, prev.energy - 10) // Playing takes energy
+    }));
+    
     setIsMinigameOpen(false);
     handlePandaTalk(`Minigame score: ${score}! Amazing! 🎉`);
+  };
+
+  const handleBallMinigameEnd = (score: number, xpEarned: number, coinsEarned: number) => {
+    setCoins(prev => prev + coinsEarned);
+    addXP(xpEarned);
+    
+    // Update stats based on shooting performance
+    setStats(prev => ({
+      ...prev,
+      fun: Math.min(100, prev.fun + 25), // Shooting is very fun!
+      energy: Math.max(0, prev.energy - 15) // Shooting takes more energy
+    }));
+    
+    setIsBallMinigameOpen(false);
+    handlePandaTalk(`Goal! ${score} shots made! 🎯`);
   };
 
   return (
@@ -442,13 +468,15 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Minigame Modal */}
-      {isMinigameOpen && <MinigameModal onClose={() => setIsMinigameOpen(false)} onGameEnd={handleMinigameEnd} />}
+      {/* Minigame Modals */}
+      {isMinigameOpen && <BambooCatcher onClose={() => setIsMinigameOpen(false)} onGameEnd={handleMinigameEnd} />}
+      {isBallMinigameOpen && <BallShooter onClose={() => setIsBallMinigameOpen(false)} onGameEnd={handleBallMinigameEnd} />}
 
       {/* Bottom Navigation */}
       <div className="p-6 bg-white/40 backdrop-blur-md border-t-4 border-gray-800 flex justify-around items-center z-40">
         <NavButton icon="🎮" label="Play" onClick={() => setActiveMenu(activeMenu === 'PLAY' ? 'NONE' : 'PLAY')} active={activeMenu === 'PLAY'} />
-        <NavButton icon="🎋" label="Minigame" onClick={() => setIsMinigameOpen(true)} active={false} />
+        <NavButton icon="🎋" label="Bamboo" onClick={() => setIsMinigameOpen(true)} active={false} />
+        <NavButton icon="⚽" label="Shooter" onClick={() => setIsBallMinigameOpen(true)} active={false} />
         <NavButton icon="🥘" label="Kitchen" onClick={() => setActiveMenu(activeMenu === 'KITCHEN' ? 'NONE' : 'KITCHEN')} active={activeMenu === 'KITCHEN'} />
         <NavButton icon="👗" label="Cosmetic" onClick={() => setActiveMenu(activeMenu === 'COSMETIC' ? 'NONE' : 'COSMETIC')} active={activeMenu === 'COSMETIC'} />
         <NavButton icon="🧼" label="Wash" onClick={washPet} active={isWashing} />

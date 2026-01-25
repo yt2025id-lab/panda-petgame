@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Panda from './Panda';
-import { PetStats } from './type';
+import Panda from '../Panda';
+import { PetStats } from '../type';
 
 interface Bamboo {
   id: number;
@@ -9,12 +9,12 @@ interface Bamboo {
   speed: number;
 }
 
-interface MinigameModalProps {
+interface BambooCatcherProps {
   onClose: () => void;
   onGameEnd: (score: number, xpEarned: number, coinsEarned: number) => void;
 }
 
-const MinigameModal: React.FC<MinigameModalProps> = ({ onClose, onGameEnd }) => {
+const BambooCatcher: React.FC<BambooCatcherProps> = ({ onClose, onGameEnd }) => {
   const [gameState, setGameState] = useState<'playing' | 'ended'>('playing');
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
@@ -300,4 +300,4 @@ const MinigameModal: React.FC<MinigameModalProps> = ({ onClose, onGameEnd }) => 
   );
 };
 
-export default MinigameModal;
+export default BambooCatcher;
