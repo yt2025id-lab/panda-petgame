@@ -190,7 +190,7 @@ const App: React.FC = () => {
     }));
     
     setIsBallMinigameOpen(false);
-    handlePandaTalk(`Goal! ${score} shots made! 🎯`);
+    handlePandaTalk(`Goal! Score: ${score} 🎯`);
   };
 
   return (

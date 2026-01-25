@@ -26,6 +26,7 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
   const particleIdRef = useRef(0);
   const gameLoopRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const goalMoveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const goalScoredThisShot = useRef(false);
 
   const GAME_WIDTH = 400;
   const GAME_HEIGHT = 500;
@@ -114,23 +115,21 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
           setBallX(200);
           setBallY(420);
           setFrozenTrajectoryAngle(null);
-          setShotsRemaining(s => {
-            const newShots = s - 1;
-            if (newShots <= 0) {
-              setGameState('ended');
-            }
-            return newShots;
-          });
+          if (shotsRemaining <= 0) {
+            setGameState('ended');
+          }
           return { x: 200, y: 420, vx: 0, vy: 0 };
         }
 
         // Check collision with goalpost
         if (
+          !goalScoredThisShot.current &&
           x + BALL_RADIUS > goalX &&
           x - BALL_RADIUS < goalX + GOAL_WIDTH &&
           y - BALL_RADIUS < GOAL_HEIGHT
         ) {
           // Goal scored!
+          goalScoredThisShot.current = true;
           setScore(s => s + 1);
 
           // Add particles
@@ -145,13 +144,9 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
           setBallX(200);
           setBallY(420);
           setFrozenTrajectoryAngle(null);
-          setShotsRemaining(s => {
-            const newShots = s - 1;
-            if (newShots <= 0) {
-              setGameState('ended');
-            }
-            return newShots;
-          });
+          if (shotsRemaining <= 0) {
+            setGameState('ended');
+          }
           return { x: 200, y: 420, vx: 0, vy: 0 };
         }
 
@@ -173,6 +168,12 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
 
   const handleShoot = () => {
     if (ballInFlight || gameState !== 'playing' || shotsRemaining <= 0) return;
+
+    // Decrement shots immediately when shooting
+    setShotsRemaining(shotsRemaining - 1);
+
+    // Reset goal scored flag for this shot
+    goalScoredThisShot.current = false;
 
     // Freeze trajectory angle at shoot time
     setFrozenTrajectoryAngle(arrowAngle);
