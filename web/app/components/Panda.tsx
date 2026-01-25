@@ -2,6 +2,15 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { PetStats } from './type';
 
+export interface CosmeticItem {
+  objectId: string;
+  fields: {
+    name: string;
+    category: string;
+    rarity: string;
+  };
+}
+
 interface PandaProps {
   stats: PetStats;
   isSleeping: boolean;
@@ -11,6 +20,7 @@ interface PandaProps {
   activeToyAnimation: string | null;
   mousePos: { x: number; y: number };
   equippedCosmeticId: string | null;
+  equippedCosmetic?: CosmeticItem | null;
   onClick: () => void;
   onPet: () => void;
   onDropItem: () => void;
@@ -25,6 +35,7 @@ const Panda: React.FC<PandaProps> = ({
   activeToyAnimation,
   mousePos,
   equippedCosmeticId,
+  equippedCosmetic,
   onClick,
   onPet,
   onDropItem
@@ -196,11 +207,19 @@ const Panda: React.FC<PandaProps> = ({
         )}
 
         {/* Cosmetics: Eyes (Glasses) */}
-        {equippedCosmeticId === 'sunglasses' && !isSleeping && (
+        {(equippedCosmeticId === 'sunglasses' || (equippedCosmetic?.fields.category === 'glasses' && equippedCosmetic?.fields.name.includes('Sunglasses'))) && !isSleeping && (
           <g style={{ transform: `translate(${pupilOffset.x}px, ${pupilOffset.y}px)`, transition: 'transform 0.1s ease-out' }}>
             <rect x="55" y="125" width="60" height="30" rx="5" fill="#2D2D2D" fillOpacity="0.8" />
             <rect x="125" y="125" width="60" height="30" rx="5" fill="#2D2D2D" fillOpacity="0.8" />
             <line x1="115" y1="140" x2="125" y2="140" stroke="#2D2D2D" strokeWidth="4" />
+          </g>
+        )}
+
+        {/* Monocle */}
+        {equippedCosmetic?.fields.category === 'glasses' && equippedCosmetic?.fields.name.includes('Monocle') && !isSleeping && (
+          <g style={{ transform: `translate(${pupilOffset.x}px, ${pupilOffset.y}px)`, transition: 'transform 0.1s ease-out' }}>
+            <circle cx="155" cy="135" r="25" stroke="#FFD700" strokeWidth="4" fill="#FFD700" fillOpacity="0.2" />
+            <line x1="180" y1="135" x2="200" y2="160" stroke="#FFD700" strokeWidth="2" />
           </g>
         )}
 
@@ -217,13 +236,30 @@ const Panda: React.FC<PandaProps> = ({
           {expression === '😴' && <path d="M105,190 H135" stroke="#2D2D2D" strokeWidth="4" fill="none" strokeLinecap="round" />}
         </g>
 
-        {/* Cosmetics: Neck (Bowtie) */}
-        {equippedCosmeticId === 'bowtie' && (
+        {/* Graphics: Body Extras (Shirts) */}
+        {equippedCosmetic?.fields.category === 'shirt' && equippedCosmetic?.fields.name.includes('T-Shirt') && (
+          <path d="M40,160 Q120,130 200,160 L210,240 Q120,265 30,240 Z" fill="#2196F3" stroke="#2D2D2D" strokeWidth="4" />
+        )}
+        {equippedCosmetic?.fields.category === 'shirt' && equippedCosmetic?.fields.name.includes('Tuxedo') && (
+          <g>
+            <path d="M40,160 Q120,130 200,160 L210,240 Q120,265 30,240 Z" fill="#2D2D2D" stroke="#000" strokeWidth="4" />
+            <path d="M120,160 L80,240 L160,240 Z" fill="white" />
+            <circle cx="120" cy="190" r="3" fill="#000" />
+            <circle cx="120" cy="210" r="3" fill="#000" />
+            <circle cx="120" cy="230" r="3" fill="#000" />
+          </g>
+        )}
+
+        {/* Cosmetics: Neck (Bowtie/Jewelry) */}
+        {(equippedCosmeticId === 'bowtie' || (equippedCosmetic?.fields.category === 'accessory' && equippedCosmetic?.fields.name.includes('Bow Tie'))) && (
           <g transform="translate(90, 220)">
             <path d="M0,0 L30,15 L0,30 Z" fill="#E91E63" stroke="#2D2D2D" strokeWidth="2" />
             <path d="M60,0 L30,15 L60,30 Z" fill="#E91E63" stroke="#2D2D2D" strokeWidth="2" />
             <circle cx="30" cy="15" r="8" fill="#C2185B" stroke="#2D2D2D" strokeWidth="2" />
           </g>
+        )}
+        {equippedCosmetic?.fields.category === 'accessory' && equippedCosmetic?.fields.name.includes('Necklace') && (
+          <path d="M60,200 Q120,240 180,200" fill="none" stroke="#FFD700" strokeWidth="6" strokeLinecap="round" />
         )}
 
         {/* Blush */}
@@ -242,16 +278,23 @@ const Panda: React.FC<PandaProps> = ({
             <rect x="15" y="30" width="70" height="5" fill="#D32F2F" />
           </g>
         )}
-        {equippedCosmeticId === 'party_hat' && (
+        {(equippedCosmeticId === 'party_hat' || (equippedCosmetic?.fields.category === 'hat' && equippedCosmetic?.fields.name.includes('Party Hat'))) && (
           <g transform="translate(85, 0)">
             <path d="M0,70 L35,0 L70,70 Z" fill="#FFEB3B" stroke="#2D2D2D" strokeWidth="3" />
             <circle cx="35" cy="0" r="8" fill="#F44336" />
           </g>
         )}
-        {equippedCosmeticId === 'crown' && (
+        {(equippedCosmeticId === 'crown' || (equippedCosmetic?.fields.category === 'hat' && equippedCosmetic?.fields.name.includes('Crown'))) && (
           <g transform="translate(75, 15)">
             <path d="M0,50 L0,10 L22,30 L45,0 L68,30 L90,10 L90,50 Z" fill="#FFD700" stroke="#B8860B" strokeWidth="3" />
             <circle cx="45" cy="15" r="5" fill="#FF0000" />
+          </g>
+        )}
+        {equippedCosmetic?.fields.category === 'hat' && equippedCosmetic?.fields.name.includes('Santa') && (
+          <g transform="translate(60, 10)">
+            <path d="M0,60 Q60,0 120,60 Z" fill="#F44336" stroke="#2D2D2D" strokeWidth="3" />
+            <rect x="0" y="50" width="120" height="15" rx="7.5" fill="white" stroke="#2D2D2D" strokeWidth="2" />
+            <circle cx="125" cy="65" r="10" fill="white" stroke="#2D2D2D" strokeWidth="2" />
           </g>
         )}
       </svg>
