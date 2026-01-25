@@ -4,6 +4,7 @@ import { PetStats, FoodItem, GameMessage, CosmeticItem, MissionStatus, ToyItem }
 import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, COSMETIC_ITEMS, MISSIONS, TOY_ITEMS, getPandaDialogue } from './components/constant';
 import StatBar from './components/StatBar';
 import Panda from './components/Panda';
+import MinigameModal from './components/MinigameModal';
 
 const App: React.FC = () => {
   const [stats, setStats] = useState<PetStats>(INITIAL_STATS);
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   const [missionStatuses, setMissionStatuses] = useState<MissionStatus[]>(
     MISSIONS.map(m => ({ missionId: m.id, progress: 0, claimed: false }))
   );
+  const [isMinigameOpen, setIsMinigameOpen] = useState(false);
   const handlePandaTalk = async (customMessage?: string) => {
     if (isThinking || isSleeping) return;
     setIsThinking(true);
@@ -180,6 +182,13 @@ const App: React.FC = () => {
   const handleDropItem = () => {
     if (draggedFood) feedPet(draggedFood);
     else if (draggedToy) playWithToy(draggedToy);
+  };
+
+  const handleMinigameEnd = (score: number, xpEarned: number, coinsEarned: number) => {
+    setCoins(prev => prev + coinsEarned);
+    addXP(xpEarned);
+    setIsMinigameOpen(false);
+    handlePandaTalk(`Minigame score: ${score}! Amazing! 🎉`);
   };
 
   return (
@@ -433,9 +442,13 @@ const App: React.FC = () => {
         )}
       </div>
 
+      {/* Minigame Modal */}
+      {isMinigameOpen && <MinigameModal onClose={() => setIsMinigameOpen(false)} onGameEnd={handleMinigameEnd} />}
+
       {/* Bottom Navigation */}
       <div className="p-6 bg-white/40 backdrop-blur-md border-t-4 border-gray-800 flex justify-around items-center z-40">
         <NavButton icon="🎮" label="Play" onClick={() => setActiveMenu(activeMenu === 'PLAY' ? 'NONE' : 'PLAY')} active={activeMenu === 'PLAY'} />
+        <NavButton icon="🎋" label="Minigame" onClick={() => setIsMinigameOpen(true)} active={false} />
         <NavButton icon="🥘" label="Kitchen" onClick={() => setActiveMenu(activeMenu === 'KITCHEN' ? 'NONE' : 'KITCHEN')} active={activeMenu === 'KITCHEN'} />
         <NavButton icon="👗" label="Cosmetic" onClick={() => setActiveMenu(activeMenu === 'COSMETIC' ? 'NONE' : 'COSMETIC')} active={activeMenu === 'COSMETIC'} />
         <NavButton icon="🧼" label="Wash" onClick={washPet} active={isWashing} />
