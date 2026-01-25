@@ -6,7 +6,6 @@ import StatBar from './components/StatBar';
 import Panda from './components/Panda';
 import BambooCatcher from './components/minigames/BambooCatcher';
 import BallShooter from './components/minigames/BallShooter';
-import DinoJump from './components/minigames/DinoJump';
 
 const App: React.FC = () => {
   const [stats, setStats] = useState<PetStats>(INITIAL_STATS);
@@ -27,7 +26,6 @@ const App: React.FC = () => {
   );
   const [isMinigameOpen, setIsMinigameOpen] = useState(false);
   const [isBallMinigameOpen, setIsBallMinigameOpen] = useState(false);
-  const [isDinoJumpOpen, setIsDinoJumpOpen] = useState(false);
   const handlePandaTalk = async (customMessage?: string) => {
     if (isThinking || isSleeping) return;
     setIsThinking(true);
@@ -195,21 +193,6 @@ const App: React.FC = () => {
     handlePandaTalk(`Goal! Score: ${score} 🎯`);
   };
 
-  const handleDinoJumpEnd = (score: number, xpEarned: number, coinsEarned: number) => {
-    setCoins(prev => prev + coinsEarned);
-    addXP(xpEarned);
-    
-    // Update stats based on jumping performance
-    setStats(prev => ({
-      ...prev,
-      fun: Math.min(100, prev.fun + 15), // Jumping is fun!
-      energy: Math.max(0, prev.energy - 12) // Jumping takes energy
-    }));
-    
-    setIsDinoJumpOpen(false);
-    handlePandaTalk(`Jump! Distance: ${score} 🦖`);
-  };
-
   return (
     <div className={`fixed inset-0 transition-colors duration-1000 ${isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
 
@@ -319,17 +302,6 @@ const App: React.FC = () => {
                 <div className="text-xs font-black mt-2 text-gray-800">Shooter</div>
               </div>
               
-              {/* Dino Jump */}
-              <div
-                onClick={() => {
-                  setIsDinoJumpOpen(true);
-                  setActiveMenu('NONE');
-                }}
-                className="flex-shrink-0 bg-blue-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-blue-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
-              >
-                <div className="text-4xl">🦖</div>
-                <div className="text-xs font-black mt-2 text-gray-800">Jump</div>
-              </div>
             </div>
           </div>
         )}
@@ -484,7 +456,6 @@ const App: React.FC = () => {
       {/* Minigame Modals */}
       {isMinigameOpen && <BambooCatcher onClose={() => setIsMinigameOpen(false)} onGameEnd={handleMinigameEnd} />}
       {isBallMinigameOpen && <BallShooter onClose={() => setIsBallMinigameOpen(false)} onGameEnd={handleBallMinigameEnd} />}
-      {isDinoJumpOpen && <DinoJump onClose={() => setIsDinoJumpOpen(false)} onGameEnd={handleDinoJumpEnd} />}
 
       {/* Bottom Navigation */}
       <div className="p-6 bg-white/40 backdrop-blur-md border-t-4 border-gray-800 flex justify-around items-center z-40">

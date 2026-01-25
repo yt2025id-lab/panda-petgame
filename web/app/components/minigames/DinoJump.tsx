@@ -16,7 +16,7 @@ interface Obstacle {
 const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
   const [gameState, setGameState] = useState<'playing' | 'ended'>('playing');
   const [score, setScore] = useState(0);
-  const [pandaY, setPandaY] = useState(366); // GROUND_Y - PANDA_EFFECTIVE_HEIGHT - GROUND_OFFSET
+  const [pandaY, setPandaY] = useState(269); // Start higher so the panda is fully visible
   const [pandaVelocityY, setPandaVelocityY] = useState(0);
   const [isJumping, setIsJumping] = useState(false);
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
@@ -31,12 +31,12 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
 
   const GAME_WIDTH = 400;
   const GAME_HEIGHT = 500;
-  const GROUND_Y = 400; // Move ground lower
-  const PANDA_SIZE = 60; // Base size before scaling
-  const PANDA_SCALE = 0.5;
-  const PANDA_EFFECTIVE_HEIGHT = PANDA_SIZE * PANDA_SCALE; // 30px
-  const GROUND_OFFSET = 4; // small lift so panda sits on line visually
-  const OBSTACLE_BOTTOM_OFFSET = 25;
+  const GROUND_Y = 360; // Lift the ground so nothing is cropped at the bottom
+  const PANDA_SIZE = 30; // Base size before scaling
+  const PANDA_SCALE = 0.25; // Downscale further (50% of previous scale)
+  const PANDA_EFFECTIVE_HEIGHT = PANDA_SIZE * PANDA_SCALE; // 7.5px
+  const GROUND_OFFSET = 0; // align panda feet on the ground line
+  const OBSTACLE_BASELINE = GROUND_Y; // align obstacle base to ground line
   const PANDA_X = 50;
   const JUMP_FORCE = -12;
   const GRAVITY = 0.6;
@@ -138,7 +138,7 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
           const obsLeft = obs.x;
           const obsWidth = 52;
           const obsRight = obsLeft + obsWidth;
-          const obsBottom = GROUND_Y - OBSTACLE_BOTTOM_OFFSET;
+          const obsBottom = OBSTACLE_BASELINE;
           const obsTop = obsBottom - obs.height;
 
           // AABB collision detection
@@ -236,7 +236,8 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
                   top: pandaY,
                   width: PANDA_SIZE,
                   height: PANDA_SIZE,
-                  transform: `scale(${PANDA_SCALE})`
+                  transform: `scale(${PANDA_SCALE})`,
+                  transformOrigin: 'bottom left'
                 }}
               >
                 <Panda
@@ -259,7 +260,7 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
                   className="absolute"
                   style={{
                     left: obs.x,
-                    bottom: GAME_HEIGHT - GROUND_Y - OBSTACLE_BOTTOM_OFFSET,
+                    bottom: GAME_HEIGHT - OBSTACLE_BASELINE,
                     width: 52,
                     height: obs.height,
                   }}
