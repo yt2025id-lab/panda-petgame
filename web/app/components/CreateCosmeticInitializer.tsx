@@ -29,7 +29,6 @@ export default function CreateCosmeticInitializer({ onSuccess, coins = 0, onSpen
         onError: (err) => toast.error(err.message),
     });
     const [selectedCosmetic, setSelectedCosmetic] = useState<typeof COSMETIC_PRESETS[0] | null>(null);
-    const [customName, setCustomName] = useState('');
 
     const handleMint = (cosmetic: typeof COSMETIC_PRESETS[0]) => {
         if (!currentAccount) {
@@ -44,7 +43,7 @@ export default function CreateCosmeticInitializer({ onSuccess, coins = 0, onSpen
 
         createCosmetic({
             category: cosmetic.category,
-            name: customName || cosmetic.name,
+            name: cosmetic.name,
             description: cosmetic.description,
             rarity: cosmetic.rarity,
         }, {
