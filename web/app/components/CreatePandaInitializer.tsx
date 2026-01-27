@@ -1,46 +1,46 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
-import { useCurrentAccount } from "@mysten/dapp-kit";
-import { ConnectButton } from "@mysten/dapp-kit";
-import useCreatePanda from "../hooks/useCreatePanda";
+import useCreatePandaEvm from '../hooks/evm/useCreatePandaEvm';
 
 interface CreatePandaInitializerProps {
     onSuccess: () => void;
     onCancel?: () => void;
+    evmSigner?: any;
+    evmAccount?: string;
 }
 
 const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
     onSuccess,
     onCancel,
+    evmSigner,
+    evmAccount,
 }) => {
     const [pandaName, setPandaName] = useState("");
-    const currentAccount = useCurrentAccount();
+    const { createPanda: createPandaEvm } = useCreatePandaEvm(evmSigner);
+    const [isCreating, setIsCreating] = useState(false);
 
-    console.log("Current Account:", currentAccount?.address);
-    const { mutate: createPanda, isPending: isCreatingPanda } = useCreatePanda({
-        onSuccess: () => {
-            toast.success("🐼 Congratulations! Your first Panda is born! 🎉");
-            setPandaName("");
-            onSuccess();
-        },
-        onError: (e) => {
-            toast.error(`Error creating Panda: ${e.message}`);
-        },
-    });
-
-    const handleCreatePanda = () => {
+    const handleCreatePanda = async () => {
         if (!pandaName.trim()) {
             toast.error("Please give your Panda a name!");
             return;
         }
 
-        if (!currentAccount?.address) {
+        if (!evmSigner || !evmAccount) {
             toast.error("Please connect your wallet first");
             return;
         }
 
-        createPanda({ name: pandaName });
+        setIsCreating(true);
+        try {
+            await createPandaEvm({ name: pandaName });
+            toast.success("🐼 Congratulations! Your first Panda is born! 🎉");
+            setPandaName("");
+            onSuccess();
+        } catch (e: any) {
+            toast.error(`Error creating Panda: ${e.message}`);
+        }
+        setIsCreating(false);
     };
 
     const suggestedNames = [
@@ -61,82 +61,71 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
                     <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full">
                         <span className="text-5xl">🐼</span>
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-800">Welcome to Yeru!</h1>
+                    <h1 className="text-3xl font-bold text-gray-800">Welcome to Panda!</h1>
                     <p className="text-gray-600">
-                        Create your first Panda NFT and start your adventure
+                        Create your first Panda NFT on Base and start your adventure
                     </p>
                 </div>
 
                 {/* Form */}
                 <div className="space-y-4">
-                    {!currentAccount?.address ? (
-                        <div className="space-y-4">
-                            <p className="text-center text-gray-700 font-semibold">
-                                Please connect your wallet to create a Panda
-                            </p>
-                            <ConnectButton />
+                    {/* Name Input */}
+                    <div className="space-y-2">
+                        <label className="block text-sm font-semibold text-gray-700">
+                            Panda Name
+                        </label>
+                        <input
+                            type="text"
+                            value={pandaName}
+                            onChange={(e) => setPandaName(e.target.value)}
+                            placeholder="Choose a name for your Panda..."
+                            disabled={isCreating}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !isCreating) {
+                                    handleCreatePanda();
+                                }
+                            }}
+                            className="w-full h-12 px-4 text-base border-2 border-purple-300 rounded-lg focus:border-purple-600 focus:outline-none disabled:opacity-50"
+                        />
+                    </div>
+
+                    {/* Suggested Names */}
+                    <div className="space-y-2">
+                        <p className="text-xs text-gray-500 font-medium">
+                            Quick names (click to use):
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                            {suggestedNames.map((name) => (
+                                <button
+                                    key={name}
+                                    onClick={() => setPandaName(name)}
+                                    disabled={isCreating}
+                                    className="px-3 py-2 text-sm rounded-lg border-2 border-gray-300 hover:border-purple-500 hover:bg-purple-50 transition disabled:opacity-50"
+                                >
+                                    {name}
+                                </button>
+                            ))}
                         </div>
-                    ) : (
-                        <>
-                            {/* Name Input */}
-                            <div className="space-y-2">
-                                <label className="block text-sm font-semibold text-gray-700">
-                                    Panda Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={pandaName}
-                                    onChange={(e) => setPandaName(e.target.value)}
-                                    placeholder="Choose a name for your Panda..."
-                                    disabled={isCreatingPanda}
-                                    onKeyPress={(e) => {
-                                        if (e.key === "Enter" && !isCreatingPanda) {
-                                            handleCreatePanda();
-                                        }
-                                    }}
-                                    className="w-full h-12 px-4 text-base border-2 border-purple-300 rounded-lg focus:border-purple-600 focus:outline-none disabled:opacity-50"
-                                />
-                            </div>
+                    </div>
 
-                            {/* Suggested Names */}
-                            <div className="space-y-2">
-                                <p className="text-xs text-gray-500 font-medium">
-                                    Quick names (click to use):
-                                </p>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {suggestedNames.map((name) => (
-                                        <button
-                                            key={name}
-                                            onClick={() => setPandaName(name)}
-                                            disabled={isCreatingPanda}
-                                            className="px-3 py-2 text-sm rounded-lg border-2 border-gray-300 hover:border-purple-500 hover:bg-purple-50 transition disabled:opacity-50"
-                                        >
-                                            {name}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Create Button */}
-                            <button
-                                onClick={handleCreatePanda}
-                                disabled={isCreatingPanda || !pandaName.trim()}
-                                className="w-full h-12 text-lg font-bold bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-lg border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d] disabled:opacity-50 disabled:cursor-not-allowed hover:disabled:shadow-none flex items-center justify-center gap-2 transition-all active:scale-95"
-                            >
-                                {isCreatingPanda ? (
-                                    <>
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                        Creating Your Panda...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Wand2 className="w-5 h-5" />
-                                        Create Panda NFT
-                                    </>
-                                )}
-                            </button>
-                        </>
-                    )}
+                    {/* Create Button */}
+                    <button
+                        onClick={handleCreatePanda}
+                        disabled={isCreating || !pandaName.trim()}
+                        className="w-full h-12 text-lg font-bold bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-lg border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d] disabled:opacity-50 disabled:cursor-not-allowed hover:disabled:shadow-none flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                        {isCreating ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                Creating Your Panda...
+                            </>
+                        ) : (
+                            <>
+                                <Wand2 className="w-5 h-5" />
+                                Create Panda NFT
+                            </>
+                        )}
+                    </button>
                 </div>
 
                 {/* Info Box */}
@@ -148,7 +137,7 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
                                 About Your Panda
                             </p>
                             <p className="text-xs text-blue-700 mt-1">
-                                Your Panda is an NFT stored on the Sui blockchain. You&apos;ll own it completely and can equip cosmetic items to customize it.
+                                Your Panda is an NFT stored on the Base blockchain. You&apos;ll own it completely and can equip cosmetic items to customize it.
                             </p>
                         </div>
                     </div>
@@ -173,9 +162,9 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
                 </div>
 
                 {/* Wallet Info */}
-                {currentAccount?.address && (
+                {evmAccount && (
                     <div className="text-xs text-gray-500 text-center">
-                        <p>Connected: {currentAccount.address.slice(0, 10)}...</p>
+                        <p>Connected: {evmAccount.slice(0, 10)}...</p>
                     </div>
                 )}
 
@@ -183,7 +172,7 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
                 {onCancel && (
                     <button
                         onClick={onCancel}
-                        disabled={isCreatingPanda}
+                        disabled={isCreating}
                         className="w-full h-10 text-gray-600 border-4 border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
                     >
                         Cancel

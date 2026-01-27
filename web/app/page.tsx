@@ -1,51 +1,54 @@
 "use client"
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentAccount } from "@mysten/dapp-kit";
+// EVM Hooks
+import useQueryPandasEvm from './hooks/evm/useQueryPandasEvm';
+import useQueryCosmeticsEvm from './hooks/evm/useQueryCosmeticsEvm';
+import useEquipCosmeticEvm from './hooks/evm/useEquipCosmeticEvm';
+import useUnequipCosmeticEvm from './hooks/evm/useUnequipCosmeticEvm';
+// Components & Utils
 import { PetStats, FoodItem, GameMessage, MissionStatus, ToyItem } from './components/type';
 import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, MISSIONS, getPandaDialogue } from './components/constant';
 import StatBar from './components/StatBar';
 import Panda from './components/Panda';
 import CreatePandaInitializer from './components/CreatePandaInitializer';
 import CreateCosmeticInitializer from './components/CreateCosmeticInitializer';
-import useQueryPandas from './hooks/useQueryPandas';
-import useQueryCosmetics from './hooks/useQueryCosmetics';
-import useEquipCosmetic from './hooks/useEquipCosmetic';
-import useUnequipCosmetic from './hooks/useUnequipCosmetic';
-import { WalletButton } from './components/WalletButton';
 import BallShooter from './components/minigames/BallShooter';
 import BambooCatcher from './components/minigames/BambooCatcher';
 
 const App: React.FC = () => {
-  // Get current account for unequip operations
-  const currentAccount = useCurrentAccount();
+  // For EVM hooks, get account and signer from window.ethereum
+  const [evmAccount, setEvmAccount] = useState<string | undefined>(undefined);
+  const [evmSigner, setEvmSigner] = useState<any>(undefined);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      (async () => {
+        try {
+          const provider = new (await import('ethers')).ethers.providers.Web3Provider((window as any).ethereum);
+          await provider.send('eth_requestAccounts', []);
+          const signer = provider.getSigner();
+          setEvmSigner(signer);
+          setEvmAccount(await signer.getAddress());
+        } catch (e) {
+          console.error('Failed to connect wallet:', e);
+        }
+      })();
+    }
+  }, []);
 
   // Blockchain state
   const [hasCreatedPanda, setHasCreatedPanda] = useState(false);
   const [pandaName, setPandaName] = useState<string | null>(null);
   const [showCosmeticMinter, setShowCosmeticMinter] = useState(false);
-  const { data: ownedPandas = [], isLoading: isLoadingPandas } = useQueryPandas();
-  const { data: ownedCosmetics = [] } = useQueryCosmetics();
 
-  // Cosmetic equipment hooks
-  const { mutateAsync: equipCosmetic, isPending: isEquipping } = useEquipCosmetic({
-    onSuccess: () => {
-      handlePandaTalk("I love my new cosmetic! ✨");
-    },
-    onError: (error) => {
-      console.error("Failed to equip cosmetic:", error);
-      handlePandaTalk("Oh no! Failed to equip cosmetic.");
-    },
-  });
-
-  const { mutateAsync: unequipCosmetic, isPending: isUnequipping } = useUnequipCosmetic({
-    onSuccess: () => {
-      handlePandaTalk("I took off my cosmetic.");
-    },
-    onError: (error) => {
-      console.error("Failed to unequip cosmetic:", error);
-      handlePandaTalk("Oh no! Failed to remove cosmetic.");
-    },
-  });
+  // Use EVM hooks
+  const { pandas: ownedPandas, isLoading: isLoadingPandas } = useQueryPandasEvm(evmAccount);
+  const { cosmetics: ownedCosmetics } = useQueryCosmeticsEvm(evmAccount);
+  const { equipCosmetic } = useEquipCosmeticEvm(evmSigner);
+  const { unequipCosmetic } = useUnequipCosmeticEvm(evmSigner);
+  const [isEquipping, setIsEquipping] = useState(false);
+  const [isUnequipping, setIsUnequipping] = useState(false);
 
   // Game state
   const [stats, setStats] = useState<PetStats>(INITIAL_STATS);
@@ -95,6 +98,7 @@ const App: React.FC = () => {
       return status;
     }));
   }, []);
+
   // Follow cursor
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -134,9 +138,6 @@ const App: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [isSleeping]);
-
-
-
 
   const addXP = (amount: number) => {
     setStats(prev => ({ ...prev, xp: prev.xp + amount }));
@@ -217,7 +218,6 @@ const App: React.FC = () => {
   };
 
   const handleEquipCosmetic = useCallback(async (cosmeticId: string) => {
-    // Get the first panda to equip/unequip the cosmetic
     if (!ownedPandas || ownedPandas.length === 0) {
       handlePandaTalk("You need a panda first!");
       return;
@@ -226,46 +226,44 @@ const App: React.FC = () => {
     // Check if this is toggling off (unequip)
     if (equippedCosmeticId === cosmeticId) {
       try {
-        // Find the cosmetic to get its category
         const cosmeticToRemove = ownedCosmetics.find(c => c.objectId === cosmeticId);
-        if (!cosmeticToRemove) {
-          handlePandaTalk("Cosmetic not found!");
+        if (!cosmeticToRemove || !evmAccount) {
+          handlePandaTalk("Cannot unequip!");
           return;
         }
 
-        if (!currentAccount?.address) {
-          handlePandaTalk("Wallet not connected!");
-          return;
-        }
-
-        // Call the unequip cosmetic function on blockchain
+        setIsUnequipping(true);
         await unequipCosmetic({
           pandaId: ownedPandas[0].objectId,
           category: cosmeticToRemove.fields.category,
-          recipient: currentAccount.address,
+          recipient: evmAccount,
         });
-
-        // Only update local state after successful blockchain transaction
         setEquippedCosmeticId(null);
+        handlePandaTalk("I took off my cosmetic.");
+        setIsUnequipping(false);
       } catch (error) {
         console.error("Error unequipping cosmetic:", error);
+        handlePandaTalk("Oh no! Failed to remove cosmetic.");
+        setIsUnequipping(false);
       }
       return;
     }
 
     try {
-      // Call the equip cosmetic function on blockchain
+      setIsEquipping(true);
       await equipCosmetic({
         pandaId: ownedPandas[0].objectId,
         cosmeticId: cosmeticId,
       });
-
-      // Only update local state after successful blockchain transaction
       setEquippedCosmeticId(cosmeticId);
+      handlePandaTalk("I love my new cosmetic! ✨");
+      setIsEquipping(false);
     } catch (error) {
       console.error("Error equipping cosmetic:", error);
+      handlePandaTalk("Oh no! Failed to equip cosmetic.");
+      setIsEquipping(false);
     }
-  }, [equippedCosmeticId, ownedPandas, ownedCosmetics, currentAccount, equipCosmetic, unequipCosmetic, handlePandaTalk]);
+  }, [equippedCosmeticId, ownedPandas, ownedCosmetics, evmAccount, equipCosmetic, unequipCosmetic, handlePandaTalk]);
 
   const handleMinigameEnd = (score: number, xpEarned: number, coinsEarned: number) => {
     addXP(xpEarned);
@@ -275,8 +273,43 @@ const App: React.FC = () => {
     updateMissionProgress('play', score);
   };
 
+  // Wallet Connect Button
+  const WalletButton = () => {
+    if (!evmAccount) {
+      return (
+        <button
+          onClick={async () => {
+            setIsConnecting(true);
+            try {
+              if (typeof window !== 'undefined' && (window as any).ethereum) {
+                const provider = new (await import('ethers')).ethers.providers.Web3Provider((window as any).ethereum);
+                await provider.send('eth_requestAccounts', []);
+                const signer = provider.getSigner();
+                setEvmSigner(signer);
+                setEvmAccount(await signer.getAddress());
+              }
+            } catch (e) {
+              console.error('Failed to connect wallet:', e);
+            }
+            setIsConnecting(false);
+          }}
+          className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold px-4 py-2 rounded-lg border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 transition-transform"
+        >
+          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+        </button>
+      );
+    }
+
+    return (
+      <div className="bg-green-500 text-white font-bold px-4 py-2 rounded-lg border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d]">
+        {evmAccount.slice(0, 6)}...{evmAccount.slice(-4)}
+      </div>
+    );
+  };
+
   return (
-    <div className={`fixed inset-0 transition-colors duration-1000 ${isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
+    <>
+      <div className={`fixed inset-0 transition-colors duration-1000 ${isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
 
       {/* Cosmetic Minter Modal */}
       {showCosmeticMinter && (
@@ -309,6 +342,8 @@ const App: React.FC = () => {
           onSuccess={() => {
             setHasCreatedPanda(true);
           }}
+          evmSigner={evmSigner}
+          evmAccount={evmAccount}
         />
       )}
 
@@ -572,7 +607,7 @@ const App: React.FC = () => {
                                   key={cosmetic.objectId}
                                   onClick={() => handleEquipCosmetic(cosmetic.objectId)}
                                   className={`
-                                flex flex-col items-center justify-between border-4 border-gray-800 p-4 rounded-[2rem] transition-all cursor-pointer 
+                                flex flex-col items-center justify-between border-4 border-gray-800 p-4 rounded-[2rem] transition-all cursor-pointer
                                 hover:-translate-y-1 shadow-[4px_4px_0px_#2d2d2d] active:shadow-none active:translate-y-1
                                 ${isEquipped ? 'bg-green-100' : 'bg-white'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}
                               `}
@@ -621,7 +656,8 @@ const App: React.FC = () => {
           {isThinking && <div className="absolute bottom-32 right-12 text-5xl animate-pulse z-30">🐼💭</div>}
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

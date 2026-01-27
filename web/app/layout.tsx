@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import AppProvider from "./provider/AppProvider";
-import { WalletButton } from "./components/WalletButton";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Yeru - Virtual Pet on Sui",
-  description: "A virtual pet game on Sui blockchain",
+  title: "Panda - Virtual Pet on Base",
+  description: "A virtual pet game on Base blockchain",
 };
 
 export default function RootLayout({
@@ -29,17 +28,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AppProvider>
-          <header className=" top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-            <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Yeru</h1>
-              <WalletButton />
-            </div>
-          </header>
-          <main>
-            {children}
-          </main>
-        </AppProvider>
+        <Toaster position="top-center" />
+        <main>
+          {children}
+        </main>
       </body>
     </html>
   );
