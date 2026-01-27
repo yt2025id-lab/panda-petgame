@@ -25,7 +25,10 @@ const App: React.FC = () => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       (async () => {
         try {
-          const provider = new (await import('ethers')).ethers.providers.Web3Provider((window as any).ethereum);
+          const provider = new (await import('ethers')).ethers.providers.Web3Provider(
+            (window as any).ethereum,
+            'any' // Accept any network to prevent "underlying network changed" errors
+          );
           await provider.send('eth_requestAccounts', []);
           const signer = provider.getSigner();
           setEvmSigner(signer);
@@ -282,7 +285,10 @@ const App: React.FC = () => {
             setIsConnecting(true);
             try {
               if (typeof window !== 'undefined' && (window as any).ethereum) {
-                const provider = new (await import('ethers')).ethers.providers.Web3Provider((window as any).ethereum);
+                const provider = new (await import('ethers')).ethers.providers.Web3Provider(
+                  (window as any).ethereum,
+                  'any' // Accept any network to prevent "underlying network changed" errors
+                );
                 await provider.send('eth_requestAccounts', []);
                 const signer = provider.getSigner();
                 setEvmSigner(signer);
