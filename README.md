@@ -11,6 +11,7 @@ A blockchain-based virtual pet game built on **Base** blockchain using **Solidit
 - **Mini-games**:
   - ⚽ Ball Shooter
   - 🎋 Bamboo Catcher
+  - 🦖 Dino Jump
 - **Cosmetics**: Equip cosmetic items to customize your Panda
 - **Missions**: Complete daily missions to earn coins
 - **Leveling**: Earn XP and level up your Panda
@@ -21,26 +22,39 @@ A blockchain-based virtual pet game built on **Base** blockchain using **Solidit
 - **Cosmetic System**: Shared cosmetic templates (gas-efficient)
 - **Equip/Unequip**: Slot-based system for customization
 - **On-chain Ownership**: Full NFT ownership on Base
+- **Network Detection**: Auto-detect and prompt switch to Base Sepolia
+- **Persistent Progress**: Game state saved in localStorage
 
 ## 🏗️ Project Structure
 
 ```
-panda-game/
+panda-app/
 ├── contracts/
 │   └── base/
-│       └── PandaNFT.sol          # Main smart contract
+│       └── contracts/
+│           └── PandaNFT.sol       # Main smart contract
 │
 ├── web/                           # Next.js frontend
 │   ├── app/
-│   │   ├── components/            # React components
+│   │   ├── components/
+│   │   │   ├── Panda.tsx          # Interactive SVG panda
+│   │   │   ├── StatBar.tsx        # Stat bar component
+│   │   │   ├── CreatePandaInitializer.tsx
+│   │   │   ├── CreateCosmeticInitializer.tsx
+│   │   │   ├── constant.ts        # Game constants
+│   │   │   ├── type.ts            # TypeScript types
+│   │   │   └── minigames/
+│   │   │       ├── BallShooter.tsx
+│   │   │       ├── BambooCatcher.tsx
+│   │   │       └── DinoJump.tsx
 │   │   ├── hooks/
-│   │   │   └── evm/              # Blockchain hooks
-│   │   ├── constans/
-│   │   │   └── contractEvm.ts    # Contract config & ABI
-│   │   └── page.tsx              # Main game UI
+│   │   │   └── evm/               # Blockchain hooks
+│   │   ├── constants/
+│   │   │   └── contractEvm.ts     # Contract config & ABI
+│   │   └── page.tsx               # Main game UI
 │   └── package.json
 │
-└── README.md                      # This file
+└── README.md
 ```
 
 ## 🚀 Quick Start
@@ -54,8 +68,8 @@ panda-game/
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
-cd yeru-app
+git clone https://github.com/yt2025id-lab/panda-petgame.git
+cd panda-petgame
 
 # Install dependencies
 cd web
@@ -135,7 +149,8 @@ Unlike traditional NFT games, cosmetics in Panda are **shared templates**:
 - **Framework**: Next.js 14 (App Router)
 - **Styling**: Tailwind CSS 4
 - **Blockchain**: ethers.js v5
-- **State**: React Hooks
+- **Animation**: Framer Motion
+- **State**: React Hooks + localStorage persistence
 - **UI**: Lucide React icons
 - **Notifications**: Sonner
 
@@ -180,11 +195,16 @@ NEXT_PUBLIC_PANDA_NFT_ADDRESS=0x... # Your deployed address
 As contract owner, create some cosmetics using Remix or Hardhat:
 
 ```javascript
+await panda.createCosmetic("hat", "Top Hat", "Classic top hat", "rare");
 await panda.createCosmetic("hat", "Party Hat", "Festive hat", "common");
 await panda.createCosmetic("hat", "Crown", "Royal crown", "legendary");
-await panda.createCosmetic("shirt", "Cool Shirt", "Casual tee", "common");
+await panda.createCosmetic("hat", "Santa Hat", "Holiday spirit", "rare");
+await panda.createCosmetic("glasses", "Sunglasses", "Cool shades", "common");
+await panda.createCosmetic("glasses", "Monocle", "Classy monocle", "rare");
+await panda.createCosmetic("shirt", "T-Shirt", "Casual tee", "common");
 await panda.createCosmetic("shirt", "Tuxedo", "Fancy suit", "rare");
-await panda.createCosmetic("accessory", "Sunglasses", "Cool shades", "common");
+await panda.createCosmetic("accessory", "Bow Tie", "Dapper bow tie", "common");
+await panda.createCosmetic("accessory", "Necklace", "Golden necklace", "rare");
 ```
 
 ### 4. Deploy Frontend
@@ -215,11 +235,11 @@ vercel deploy
 
 ### Missions
 Complete daily missions to earn coins:
-- Feed your Panda 5 times
-- Play 3 games
-- Wash your Panda once
-- Reach Level 5
-- Pet your Panda 100 times
+- Feed your Panda 5 times (+50 coins)
+- Pet your Panda 20 times (+30 coins)
+- Wash your Panda 3 times (+40 coins)
+- Play with Panda 5 times (+60 coins)
+- Reach Level 2 (+100 coins)
 
 ## 🌐 Base Network
 
