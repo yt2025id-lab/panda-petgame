@@ -156,15 +156,16 @@ body {
   animation: float-up-fade 1s ease-out forwards;
 }
 
-/* Force all inputs and buttons to use dark text on light background */
+/* Force input styling - dark background with light text */
 input, textarea, select {
-  color: #000000 !important;
-  background-color: #ffffff !important;
-  -webkit-text-fill-color: #000000 !important;
+  color: #ffffff !important;
+  background-color: #1f2937 !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 input::placeholder {
   color: #9ca3af !important;
   -webkit-text-fill-color: #9ca3af !important;
+  opacity: 1 !important;
 }
 
