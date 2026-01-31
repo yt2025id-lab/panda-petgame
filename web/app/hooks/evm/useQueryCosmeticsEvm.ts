@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { PANDA_NFT_ADDRESS, PANDA_NFT_ABI } from '../../constants/contractEvm';
 
+const BASE_SEPOLIA_NETWORK = { chainId: 84532, name: 'base-sepolia' };
+
 // Match Sui structure for consistency
 export type CosmeticFields = {
   id: { id: string };
@@ -25,7 +27,7 @@ export default function useQueryCosmeticsEvm(account: string | undefined) {
     const fetchCosmetics = async () => {
       setIsLoading(true);
       try {
-        const provider = new ethers.providers.Web3Provider((window as any).ethereum);
+        const provider = new ethers.providers.Web3Provider((window as any).ethereum, BASE_SEPOLIA_NETWORK);
         const contract = new ethers.Contract(PANDA_NFT_ADDRESS, PANDA_NFT_ABI, provider);
         // Fetch all cosmetics (demo: try first 20)
         const cosmeticsList: CosmeticObject[] = [];
