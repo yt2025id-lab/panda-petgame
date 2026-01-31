@@ -85,7 +85,7 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
                                     handleCreatePanda();
                                 }
                             }}
-                            className="w-full h-12 px-4 text-base border-2 border-purple-300 rounded-lg focus:border-purple-600 focus:outline-none disabled:opacity-50"
+                            className="w-full h-12 px-4 text-base text-gray-900 bg-white border-2 border-purple-300 rounded-lg focus:border-purple-600 focus:outline-none disabled:opacity-50"
                         />
                     </div>
 
