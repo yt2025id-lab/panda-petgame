@@ -14,12 +14,42 @@ import CreatePandaInitializer from './components/CreatePandaInitializer';
 import CreateCosmeticInitializer from './components/CreateCosmeticInitializer';
 import BallShooter from './components/minigames/BallShooter';
 import BambooCatcher from './components/minigames/BambooCatcher';
+import DinoJump from './components/minigames/DinoJump';
+
+const BASE_SEPOLIA_CHAIN_ID = 84532;
+const BASE_SEPOLIA_CONFIG = {
+  chainId: '0x' + BASE_SEPOLIA_CHAIN_ID.toString(16),
+  chainName: 'Base Sepolia',
+  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+  rpcUrls: ['https://sepolia.base.org'],
+  blockExplorerUrls: ['https://sepolia.basescan.org'],
+};
+
+async function switchToBaseSepolia() {
+  const ethereum = (window as any).ethereum;
+  if (!ethereum) return;
+  try {
+    await ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: BASE_SEPOLIA_CONFIG.chainId }],
+    });
+  } catch (switchError: any) {
+    // Chain not added yet — add it
+    if (switchError.code === 4902) {
+      await ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [BASE_SEPOLIA_CONFIG],
+      });
+    }
+  }
+}
 
 const App: React.FC = () => {
   // For EVM hooks, get account and signer from window.ethereum
   const [evmAccount, setEvmAccount] = useState<string | undefined>(undefined);
   const [evmSigner, setEvmSigner] = useState<any>(undefined);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [wrongNetwork, setWrongNetwork] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
@@ -30,6 +60,14 @@ const App: React.FC = () => {
             'any' // Accept any network to prevent "underlying network changed" errors
           );
           await provider.send('eth_requestAccounts', []);
+          const network = await provider.getNetwork();
+          if (network.chainId !== BASE_SEPOLIA_CHAIN_ID) {
+            setWrongNetwork(true);
+            await switchToBaseSepolia();
+            // Re-check after switch
+            const updatedNetwork = await provider.getNetwork();
+            setWrongNetwork(updatedNetwork.chainId !== BASE_SEPOLIA_CHAIN_ID);
+          }
           const signer = provider.getSigner();
           setEvmSigner(signer);
           setEvmAccount(await signer.getAddress());
@@ -37,6 +75,12 @@ const App: React.FC = () => {
           console.error('Failed to connect wallet:', e);
         }
       })();
+
+      // Listen for chain changes
+      (window as any).ethereum.on('chainChanged', (chainIdHex: string) => {
+        const chainId = parseInt(chainIdHex, 16);
+        setWrongNetwork(chainId !== BASE_SEPOLIA_CHAIN_ID);
+      });
     }
   }, []);
 
@@ -53,9 +97,18 @@ const App: React.FC = () => {
   const [isEquipping, setIsEquipping] = useState(false);
   const [isUnequipping, setIsUnequipping] = useState(false);
 
+  // Load saved game state from localStorage
+  const loadSavedState = <T,>(key: string, fallback: T): T => {
+    if (typeof window === 'undefined') return fallback;
+    try {
+      const saved = localStorage.getItem(key);
+      return saved ? JSON.parse(saved) : fallback;
+    } catch { return fallback; }
+  };
+
   // Game state
-  const [stats, setStats] = useState<PetStats>(INITIAL_STATS);
-  const [coins, setCoins] = useState(100);
+  const [stats, setStats] = useState<PetStats>(() => loadSavedState('panda_stats', INITIAL_STATS));
+  const [coins, setCoins] = useState(() => loadSavedState('panda_coins', 100));
   const [username] = useState("PandaKeeper");
   const [isSleeping, setIsSleeping] = useState(false);
   const [isEating, setIsEating] = useState(false);
@@ -67,10 +120,21 @@ const App: React.FC = () => {
   const [draggedToy, setDraggedToy] = useState<ToyItem | null>(null);
   const [activeMenu, setActiveMenu] = useState<'NONE' | 'KITCHEN' | 'PLAY' | 'COINS' | 'COSMETIC'>('NONE');
   const [equippedCosmeticId, setEquippedCosmeticId] = useState<string | null>(null);
-  const [missionStatuses, setMissionStatuses] = useState<MissionStatus[]>(
-    MISSIONS.map(m => ({ missionId: m.id, progress: 0, claimed: false }))
+  const [missionStatuses, setMissionStatuses] = useState<MissionStatus[]>(() =>
+    loadSavedState('panda_missions', MISSIONS.map(m => ({ missionId: m.id, progress: 0, claimed: false })))
   );
-  const [activeMinigame, setActiveMinigame] = useState<'NONE' | 'BALLSHOOTER' | 'BAMBOOCATCHER'>('NONE');
+  const [activeMinigame, setActiveMinigame] = useState<'NONE' | 'BALLSHOOTER' | 'BAMBOOCATCHER' | 'DINOJUMP'>('NONE');
+
+  // Save game state to localStorage
+  useEffect(() => {
+    localStorage.setItem('panda_stats', JSON.stringify(stats));
+  }, [stats]);
+  useEffect(() => {
+    localStorage.setItem('panda_coins', JSON.stringify(coins));
+  }, [coins]);
+  useEffect(() => {
+    localStorage.setItem('panda_missions', JSON.stringify(missionStatuses));
+  }, [missionStatuses]);
 
   // Check if user has created a Panda on blockchain
   useEffect(() => {
@@ -317,6 +381,19 @@ const App: React.FC = () => {
     <>
       <div className={`fixed inset-0 transition-colors duration-1000 ${isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
 
+      {/* Wrong Network Banner */}
+      {wrongNetwork && (
+        <div className="bg-red-500 text-white text-center py-3 px-4 z-[200] flex items-center justify-center gap-3 border-b-4 border-red-800">
+          <span className="font-bold text-sm">Wrong network! Please switch to Base Sepolia.</span>
+          <button
+            onClick={switchToBaseSepolia}
+            className="bg-white text-red-600 font-black text-xs px-4 py-1.5 rounded-full border-2 border-red-800 hover:scale-105 active:scale-95 transition-transform"
+          >
+            Switch Network
+          </button>
+        </div>
+      )}
+
       {/* Cosmetic Minter Modal */}
       {showCosmeticMinter && (
         <CreateCosmeticInitializer
@@ -337,6 +414,12 @@ const App: React.FC = () => {
       )}
       {activeMinigame === 'BAMBOOCATCHER' && (
         <BambooCatcher
+          onClose={() => setActiveMinigame('NONE')}
+          onGameEnd={handleMinigameEnd}
+        />
+      )}
+      {activeMinigame === 'DINOJUMP' && (
+        <DinoJump
           onClose={() => setActiveMinigame('NONE')}
           onGameEnd={handleMinigameEnd}
         />
@@ -466,6 +549,13 @@ const App: React.FC = () => {
                   >
                     <div className="text-4xl">🎋</div>
                     <div className="text-xs font-black mt-2 text-gray-800 text-center">Bamboo Catcher</div>
+                  </div>
+                  <div
+                    onClick={() => setActiveMinigame('DINOJUMP')}
+                    className="flex-shrink-0 bg-lime-50 border-4 border-gray-800 p-4 rounded-2xl hover:bg-lime-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
+                  >
+                    <div className="text-4xl">🦖</div>
+                    <div className="text-xs font-black mt-2 text-gray-800 text-center">Dino Jump</div>
                   </div>
                 </div>
               </div>

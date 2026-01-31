@@ -28,7 +28,9 @@ contract PandaNFT is ERC721URIStorage, ERC721Enumerable, Ownable {
     event CosmeticEquipped(uint256 indexed pandaId, uint256 indexed cosmeticId, string category);
     event CosmeticUnequipped(uint256 indexed pandaId, string category);
 
-    constructor() ERC721("PandaNFT", "PNFT") Ownable(msg.sender) {}
+    constructor() ERC721("PandaNFT", "PNFT") Ownable(msg.sender) {
+        nextCosmeticId = 1; // Start from 1 so that 0 means "no cosmetic equipped"
+    }
 
     // Anyone can mint their own Panda (similar to Move version)
     function mint(string memory _tokenURI) external {

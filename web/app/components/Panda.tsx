@@ -17,7 +17,7 @@ interface PandaProps {
   isEating: boolean;
   isWashing: boolean;
   mousePos: { x: number; y: number };
-  equippedCosmeticId: string | null;
+  equippedCosmeticId?: string | null;
   equippedCosmetic?: CosmeticItem | null;
   onClick: () => void;
   onPet: () => void;
@@ -30,7 +30,6 @@ const Panda: React.FC<PandaProps> = ({
   isEating,
   isWashing,
   mousePos,
-  equippedCosmeticId,
   equippedCosmetic,
   onClick,
   onPet,
@@ -198,7 +197,7 @@ const Panda: React.FC<PandaProps> = ({
         )}
 
         {/* Cosmetics: Eyes (Glasses) */}
-        {(equippedCosmeticId === 'sunglasses' || (equippedCosmetic?.fields.category === 'glasses' && equippedCosmetic?.fields.name.includes('Sunglasses'))) && !isSleeping && (
+        {equippedCosmetic?.fields.category === 'glasses' && equippedCosmetic?.fields.name.includes('Sunglasses') && !isSleeping && (
           <g style={{ transform: `translate(${pupilOffset.x}px, ${pupilOffset.y}px)`, transition: 'transform 0.1s ease-out' }}>
             <rect x="55" y="125" width="60" height="30" rx="5" fill="#2D2D2D" fillOpacity="0.8" />
             <rect x="125" y="125" width="60" height="30" rx="5" fill="#2D2D2D" fillOpacity="0.8" />
@@ -241,7 +240,7 @@ const Panda: React.FC<PandaProps> = ({
         )}
 
         {/* Cosmetics: Neck (Bowtie/Jewelry) */}
-        {(equippedCosmeticId === 'bowtie' || (equippedCosmetic?.fields.category === 'accessory' && equippedCosmetic?.fields.name.includes('Bow Tie'))) && (
+        {equippedCosmetic?.fields.category === 'accessory' && equippedCosmetic?.fields.name.includes('Bow Tie') && (
           <g transform="translate(90, 220)">
             <path d="M0,0 L30,15 L0,30 Z" fill="#E91E63" stroke="#2D2D2D" strokeWidth="2" />
             <path d="M60,0 L30,15 L60,30 Z" fill="#E91E63" stroke="#2D2D2D" strokeWidth="2" />
@@ -261,20 +260,20 @@ const Panda: React.FC<PandaProps> = ({
         )}
 
         {/* Cosmetics: Hats */}
-        {equippedCosmeticId === 'top_hat' && (
+        {equippedCosmetic?.fields.category === 'hat' && equippedCosmetic?.fields.name.includes('Top Hat') && (
           <g transform="translate(70, 10)">
             <rect x="0" y="40" width="100" height="10" rx="5" fill="#2D2D2D" stroke="#000" strokeWidth="2" />
             <rect x="15" y="0" width="70" height="40" fill="#2D2D2D" stroke="#000" strokeWidth="2" />
             <rect x="15" y="30" width="70" height="5" fill="#D32F2F" />
           </g>
         )}
-        {(equippedCosmeticId === 'party_hat' || (equippedCosmetic?.fields.category === 'hat' && equippedCosmetic?.fields.name.includes('Party Hat'))) && (
+        {equippedCosmetic?.fields.category === 'hat' && equippedCosmetic?.fields.name.includes('Party Hat') && (
           <g transform="translate(85, 0)">
             <path d="M0,70 L35,0 L70,70 Z" fill="#FFEB3B" stroke="#2D2D2D" strokeWidth="3" />
             <circle cx="35" cy="0" r="8" fill="#F44336" />
           </g>
         )}
-        {(equippedCosmeticId === 'crown' || (equippedCosmetic?.fields.category === 'hat' && equippedCosmetic?.fields.name.includes('Crown'))) && (
+        {equippedCosmetic?.fields.category === 'hat' && equippedCosmetic?.fields.name.includes('Crown') && (
           <g transform="translate(75, 15)">
             <path d="M0,50 L0,10 L22,30 L45,0 L68,30 L90,10 L90,50 Z" fill="#FFD700" stroke="#B8860B" strokeWidth="3" />
             <circle cx="45" cy="15" r="5" fill="#FF0000" />
