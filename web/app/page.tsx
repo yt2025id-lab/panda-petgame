@@ -55,19 +55,25 @@ const App: React.FC = () => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       (async () => {
         try {
-          const provider = new (await import('ethers')).ethers.providers.Web3Provider(
+          const ethersModule = await import('ethers');
+          // Use 'any' initially to detect current network without errors
+          const anyProvider = new ethersModule.ethers.providers.Web3Provider(
             (window as any).ethereum,
-            'any' // Accept any network to prevent "underlying network changed" errors
+            'any'
           );
-          await provider.send('eth_requestAccounts', []);
-          const network = await provider.getNetwork();
+          await anyProvider.send('eth_requestAccounts', []);
+          const network = await anyProvider.getNetwork();
           if (network.chainId !== BASE_SEPOLIA_CHAIN_ID) {
             setWrongNetwork(true);
             await switchToBaseSepolia();
-            // Re-check after switch
-            const updatedNetwork = await provider.getNetwork();
-            setWrongNetwork(updatedNetwork.chainId !== BASE_SEPOLIA_CHAIN_ID);
           }
+          // Re-create provider with explicit Base Sepolia network to avoid ENS errors
+          const provider = new ethersModule.ethers.providers.Web3Provider(
+            (window as any).ethereum,
+            { chainId: BASE_SEPOLIA_CHAIN_ID, name: 'base-sepolia' }
+          );
+          const currentNetwork = await provider.getNetwork();
+          setWrongNetwork(currentNetwork.chainId !== BASE_SEPOLIA_CHAIN_ID);
           const signer = provider.getSigner();
           setEvmSigner(signer);
           setEvmAccount(await signer.getAddress());
