@@ -1,10 +1,14 @@
 "use client"
 import React, { useState, useEffect, useCallback } from 'react';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
+import { ethers } from 'ethers';
 // EVM Hooks
 import useQueryPandasEvm from './hooks/evm/useQueryPandasEvm';
 import useQueryCosmeticsEvm from './hooks/evm/useQueryCosmeticsEvm';
 import useEquipCosmeticEvm from './hooks/evm/useEquipCosmeticEvm';
 import useUnequipCosmeticEvm from './hooks/evm/useUnequipCosmeticEvm';
+import { getNoEnsProvider } from './hooks/evm/providerUtils';
 // Components & Utils
 import { PetStats, FoodItem, GameMessage, MissionStatus, ToyItem } from './components/type';
 import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, MISSIONS, getPandaDialogue } from './components/constant';
@@ -17,89 +21,61 @@ import BambooCatcher from './components/minigames/BambooCatcher';
 import DinoJump from './components/minigames/DinoJump';
 
 const BASE_SEPOLIA_CHAIN_ID = 84532;
-const BASE_SEPOLIA_CONFIG = {
-  chainId: '0x' + BASE_SEPOLIA_CHAIN_ID.toString(16),
-  chainName: 'Base Sepolia',
-  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-  rpcUrls: ['https://sepolia.base.org'],
-  blockExplorerUrls: ['https://sepolia.basescan.org'],
-};
-
-async function switchToBaseSepolia() {
-  const ethereum = (window as any).ethereum;
-  if (!ethereum) return;
-  try {
-    await ethereum.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: BASE_SEPOLIA_CONFIG.chainId }],
-    });
-  } catch (switchError: any) {
-    // Chain not added yet — add it
-    if (switchError.code === 4902) {
-      await ethereum.request({
-        method: 'wallet_addEthereumChain',
-        params: [BASE_SEPOLIA_CONFIG],
-      });
-    }
-  }
-}
 
 const App: React.FC = () => {
-  // For EVM hooks, get account and signer from window.ethereum
+  const { ready, authenticated, logout } = usePrivy();
+  const { wallets } = useWallets();
+  const router = useRouter();
+
+  // Wallet state from Privy
   const [evmAccount, setEvmAccount] = useState<string | undefined>(undefined);
   const [evmSigner, setEvmSigner] = useState<any>(undefined);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [wrongNetwork, setWrongNetwork] = useState(false);
+  const [ethereumProvider, setEthereumProvider] = useState<any>(undefined);
 
+  // Auth guard: redirect to login if not authenticated
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
-      (async () => {
-        try {
-          const ethersModule = await import('ethers');
-          // Use 'any' initially to detect current network without errors
-          const anyProvider = new ethersModule.ethers.providers.Web3Provider(
-            (window as any).ethereum,
-            'any'
-          );
-          await anyProvider.send('eth_requestAccounts', []);
-          const network = await anyProvider.getNetwork();
-          if (network.chainId !== BASE_SEPOLIA_CHAIN_ID) {
-            setWrongNetwork(true);
-            await switchToBaseSepolia();
-          }
-          // Re-create provider with explicit Base Sepolia network to avoid ENS errors
-          const provider = new ethersModule.ethers.providers.Web3Provider(
-            (window as any).ethereum,
-            { chainId: BASE_SEPOLIA_CHAIN_ID, name: 'base-sepolia' }
-          );
-          const currentNetwork = await provider.getNetwork();
-          setWrongNetwork(currentNetwork.chainId !== BASE_SEPOLIA_CHAIN_ID);
-          const signer = provider.getSigner();
-          setEvmSigner(signer);
-          setEvmAccount(await signer.getAddress());
-        } catch (e) {
-          console.error('Failed to connect wallet:', e);
-        }
-      })();
-
-      // Listen for chain changes
-      (window as any).ethereum.on('chainChanged', (chainIdHex: string) => {
-        const chainId = parseInt(chainIdHex, 16);
-        setWrongNetwork(chainId !== BASE_SEPOLIA_CHAIN_ID);
-      });
+    if (ready && !authenticated) {
+      router.replace('/login');
     }
-  }, []);
+  }, [ready, authenticated, router]);
+
+  // Get provider/signer from Privy wallet
+  useEffect(() => {
+    async function setupWallet() {
+      if (!ready || !authenticated || wallets.length === 0) return;
+
+      const wallet = wallets[0];
+
+      try {
+        await wallet.switchChain(BASE_SEPOLIA_CHAIN_ID);
+      } catch (e) {
+        console.error('Failed to switch chain:', e);
+      }
+
+      const rawProvider = await wallet.getEthereumProvider();
+      setEthereumProvider(rawProvider);
+
+      const provider = getNoEnsProvider(rawProvider as ethers.providers.ExternalProvider);
+      const signer = provider.getSigner();
+      const address = await signer.getAddress();
+
+      setEvmSigner(signer);
+      setEvmAccount(address);
+    }
+
+    setupWallet();
+  }, [ready, authenticated, wallets]);
 
   // Blockchain state
   const [hasCreatedPanda, setHasCreatedPanda] = useState(false);
   const [pandaName, setPandaName] = useState<string | null>(null);
   const [showCosmeticMinter, setShowCosmeticMinter] = useState(false);
 
-  // Use EVM hooks
-  const { pandas: ownedPandas, isLoading: isLoadingPandas } = useQueryPandasEvm(evmAccount);
-  const { cosmetics: ownedCosmetics } = useQueryCosmeticsEvm(evmAccount);
-  const { equipCosmetic } = useEquipCosmeticEvm(evmSigner);
-  const { unequipCosmetic } = useUnequipCosmeticEvm(evmSigner);
+  // Use EVM hooks with provider from Privy
+  const { pandas: ownedPandas, isLoading: isLoadingPandas } = useQueryPandasEvm(evmAccount, ethereumProvider);
+  const { cosmetics: ownedCosmetics } = useQueryCosmeticsEvm(evmAccount, ethereumProvider);
+  const { equipCosmetic } = useEquipCosmeticEvm(evmSigner, ethereumProvider);
+  const { unequipCosmetic } = useUnequipCosmeticEvm(evmSigner, ethereumProvider);
   const [isEquipping, setIsEquipping] = useState(false);
   const [isUnequipping, setIsUnequipping] = useState(false);
 
@@ -346,59 +322,21 @@ const App: React.FC = () => {
     updateMissionProgress('play', score);
   };
 
-  // Wallet Connect Button
-  const WalletButton = () => {
-    if (!evmAccount) {
-      return (
-        <button
-          onClick={async () => {
-            setIsConnecting(true);
-            try {
-              if (typeof window !== 'undefined' && (window as any).ethereum) {
-                const provider = new (await import('ethers')).ethers.providers.Web3Provider(
-                  (window as any).ethereum,
-                  'any' // Accept any network to prevent "underlying network changed" errors
-                );
-                await provider.send('eth_requestAccounts', []);
-                const signer = provider.getSigner();
-                setEvmSigner(signer);
-                setEvmAccount(await signer.getAddress());
-              }
-            } catch (e) {
-              console.error('Failed to connect wallet:', e);
-            }
-            setIsConnecting(false);
-          }}
-          className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold px-4 py-2 rounded-lg border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 transition-transform"
-        >
-          {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-        </button>
-      );
-    }
-
+  // Show loading while Privy is initializing
+  if (!ready) {
     return (
-      <div className="bg-green-500 text-white font-bold px-4 py-2 rounded-lg border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d]">
-        {evmAccount.slice(0, 6)}...{evmAccount.slice(-4)}
+      <div className="fixed inset-0 bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-6xl animate-bounce">🐼</div>
+          <p className="text-2xl font-bold text-gray-800">Loading...</p>
+        </div>
       </div>
     );
-  };
+  }
 
   return (
     <>
       <div className={`fixed inset-0 transition-colors duration-1000 ${isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
-
-      {/* Wrong Network Banner */}
-      {wrongNetwork && (
-        <div className="bg-red-500 text-white text-center py-3 px-4 z-[200] flex items-center justify-center gap-3 border-b-4 border-red-800">
-          <span className="font-bold text-sm">Wrong network! Please switch to Base Sepolia.</span>
-          <button
-            onClick={switchToBaseSepolia}
-            className="bg-white text-red-600 font-black text-xs px-4 py-1.5 rounded-full border-2 border-red-800 hover:scale-105 active:scale-95 transition-transform"
-          >
-            Switch Network
-          </button>
-        </div>
-      )}
 
       {/* Cosmetic Minter Modal */}
       {showCosmeticMinter && (
@@ -439,30 +377,7 @@ const App: React.FC = () => {
           }}
           evmSigner={evmSigner}
           evmAccount={evmAccount}
-          onConnectWallet={async () => {
-            if (typeof window !== 'undefined' && (window as any).ethereum) {
-              const ethersModule = await import('ethers');
-              const provider = new ethersModule.ethers.providers.Web3Provider(
-                (window as any).ethereum,
-                'any'
-              );
-              await provider.send('eth_requestAccounts', []);
-              const network = await provider.getNetwork();
-              if (network.chainId !== BASE_SEPOLIA_CHAIN_ID) {
-                setWrongNetwork(true);
-                await switchToBaseSepolia();
-              }
-              const baseProvider = new ethersModule.ethers.providers.Web3Provider(
-                (window as any).ethereum,
-                { chainId: BASE_SEPOLIA_CHAIN_ID, name: 'base-sepolia' }
-              );
-              baseProvider.resolveName = async (name: string) => name;
-              const signer = baseProvider.getSigner();
-              setEvmSigner(signer);
-              setEvmAccount(await signer.getAddress());
-              setWrongNetwork(false);
-            }
-          }}
+          ethereumProvider={ethereumProvider}
         />
       )}
 
@@ -491,15 +406,24 @@ const App: React.FC = () => {
                   <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black uppercase text-gray-700">XP</span>
                 </div>
               </div>
-              <div className="flex gap-4">
-
+              <div className="flex gap-2 items-center">
                 <div
                   onClick={() => setActiveMenu(activeMenu === 'COINS' ? 'NONE' : 'COINS')}
                   className="cursor-pointer bg-yellow-400 border-4 border-gray-800 rounded-full px-4 py-2 font-game text-xl shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 transition-transform flex items-center gap-2"
                 >
                   💰 <span className="text-gray-900">{coins}</span>
                 </div>
-                <WalletButton />
+                {evmAccount && (
+                  <div className="bg-green-500 text-white font-bold px-3 py-2 rounded-lg border-4 border-gray-800 shadow-[2px_2px_0px_#2d2d2d] text-sm">
+                    {evmAccount.slice(0, 6)}...{evmAccount.slice(-4)}
+                  </div>
+                )}
+                <button
+                  onClick={logout}
+                  className="bg-red-400 text-white font-bold px-3 py-2 rounded-lg border-4 border-gray-800 shadow-[2px_2px_0px_#2d2d2d] hover:-translate-y-1 transition-transform text-sm"
+                >
+                  Logout
+                </button>
               </div>
             </div>
             <div className="flex justify-between gap-2 overflow-x-auto pb-1 no-scrollbar">

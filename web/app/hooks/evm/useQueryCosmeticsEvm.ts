@@ -1,17 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { PANDA_NFT_ADDRESS, PANDA_NFT_ABI } from '../../constants/contractEvm';
-
-const BASE_SEPOLIA_NETWORK = { chainId: 84532, name: 'base-sepolia' };
-
-function getNoEnsProvider() {
-  const provider = new ethers.providers.Web3Provider(
-    (window as any).ethereum,
-    BASE_SEPOLIA_NETWORK
-  );
-  provider.resolveName = async (name: string) => name;
-  return provider;
-}
+import { getNoEnsProvider } from './providerUtils';
 
 // Match Sui structure for consistency
 export type CosmeticFields = {
@@ -27,24 +17,25 @@ export type CosmeticObject = {
   fields: CosmeticFields;
 };
 
-export default function useQueryCosmeticsEvm(account: string | undefined) {
+export default function useQueryCosmeticsEvm(
+  account: string | undefined,
+  ethereumProvider?: any
+) {
   const [cosmetics, setCosmetics] = useState<CosmeticObject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!account) return;
+    if (!account || !ethereumProvider) return;
     const fetchCosmetics = async () => {
       setIsLoading(true);
       try {
-        const provider = getNoEnsProvider();
+        const provider = getNoEnsProvider(ethereumProvider);
         const contract = new ethers.Contract(PANDA_NFT_ADDRESS, PANDA_NFT_ABI, provider);
-        // Fetch all cosmetics (demo: try first 20)
         const cosmeticsList: CosmeticObject[] = [];
         for (let i = 0; i < 20; i++) {
           try {
             const c = await contract.cosmetics(i);
             if (c.name && c.name.length > 0) {
-              // Transform to match Sui structure
               cosmeticsList.push({
                 objectId: c.id.toString(),
                 fields: {
@@ -68,7 +59,7 @@ export default function useQueryCosmeticsEvm(account: string | undefined) {
       setIsLoading(false);
     };
     fetchCosmetics();
-  }, [account]);
+  }, [account, ethereumProvider]);
 
   return { cosmetics, isLoading };
 }
