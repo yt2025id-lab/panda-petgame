@@ -1,17 +1,27 @@
 import { ethers } from "ethers";
 
-const BASE_SEPOLIA_NETWORK = { chainId: 84532, name: "base-sepolia" };
+const BASE_SEPOLIA = { chainId: 84532, name: "base-sepolia" };
+const RPC_URL = "https://sepolia.base.org";
 
 /**
- * Creates an ethers v5 Web3Provider with ENS disabled.
- * Accepts an EIP-1193 provider (from Privy wallet or window.ethereum).
+ * Read-only provider using JsonRpcProvider.
+ * No wallet needed, no ENS issues.
  */
-export function getNoEnsProvider(
-  ethereumProvider: ethers.providers.ExternalProvider
-): ethers.providers.Web3Provider {
+export function getReadProvider(): ethers.providers.JsonRpcProvider {
+  return new ethers.providers.JsonRpcProvider(RPC_URL, BASE_SEPOLIA);
+}
+
+/**
+ * Write provider using Web3Provider from window.ethereum.
+ * ENS resolution disabled for Base Sepolia.
+ */
+export function getWriteProvider(): ethers.providers.Web3Provider {
+  if (typeof window === "undefined" || !window.ethereum) {
+    throw new Error("No wallet found");
+  }
   const provider = new ethers.providers.Web3Provider(
-    ethereumProvider,
-    BASE_SEPOLIA_NETWORK
+    window.ethereum as ethers.providers.ExternalProvider,
+    BASE_SEPOLIA
   );
   provider.resolveName = async (name: string) => name;
   return provider;

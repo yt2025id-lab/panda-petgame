@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { PANDA_NFT_ADDRESS, PANDA_NFT_ABI } from '../../constants/contractEvm';
-import { getNoEnsProvider } from './providerUtils';
+import { getReadProvider } from './providerUtils';
 
-// Match Sui structure for consistency
 export type CosmeticFields = {
   id: { id: string };
   category: string;
@@ -17,19 +16,16 @@ export type CosmeticObject = {
   fields: CosmeticFields;
 };
 
-export default function useQueryCosmeticsEvm(
-  account: string | undefined,
-  ethereumProvider?: any
-) {
+export default function useQueryCosmeticsEvm(account: string | undefined) {
   const [cosmetics, setCosmetics] = useState<CosmeticObject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!account || !ethereumProvider) return;
+    if (!account) return;
     const fetchCosmetics = async () => {
       setIsLoading(true);
       try {
-        const provider = getNoEnsProvider(ethereumProvider);
+        const provider = getReadProvider();
         const contract = new ethers.Contract(PANDA_NFT_ADDRESS, PANDA_NFT_ABI, provider);
         const cosmeticsList: CosmeticObject[] = [];
         for (let i = 0; i < 20; i++) {
@@ -59,7 +55,7 @@ export default function useQueryCosmeticsEvm(
       setIsLoading(false);
     };
     fetchCosmetics();
-  }, [account, ethereumProvider]);
+  }, [account]);
 
   return { cosmetics, isLoading };
 }

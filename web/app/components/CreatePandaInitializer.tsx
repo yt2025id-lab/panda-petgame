@@ -6,20 +6,16 @@ import useCreatePandaEvm from '../hooks/evm/useCreatePandaEvm';
 interface CreatePandaInitializerProps {
     onSuccess: () => void;
     onCancel?: () => void;
-    evmSigner?: any;
     evmAccount?: string;
-    ethereumProvider?: any;
 }
 
 const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
     onSuccess,
     onCancel,
-    evmSigner,
     evmAccount,
-    ethereumProvider,
 }) => {
     const [pandaName, setPandaName] = useState("");
-    const { createPanda: createPandaEvm } = useCreatePandaEvm(evmSigner, ethereumProvider);
+    const { createPanda: createPandaEvm } = useCreatePandaEvm();
     const [isCreating, setIsCreating] = useState(false);
 
     const handleCreatePanda = async () => {
@@ -28,7 +24,7 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
             return;
         }
 
-        if (!evmSigner || !evmAccount) {
+        if (!evmAccount) {
             toast.error("Please connect your wallet first");
             return;
         }

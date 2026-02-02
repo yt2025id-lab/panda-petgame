@@ -1,14 +1,11 @@
 "use client"
 import React, { useState, useEffect, useCallback } from 'react';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { useRouter } from 'next/navigation';
-import { ethers } from 'ethers';
+import { Loader2 } from 'lucide-react';
 // EVM Hooks
 import useQueryPandasEvm from './hooks/evm/useQueryPandasEvm';
 import useQueryCosmeticsEvm from './hooks/evm/useQueryCosmeticsEvm';
 import useEquipCosmeticEvm from './hooks/evm/useEquipCosmeticEvm';
 import useUnequipCosmeticEvm from './hooks/evm/useUnequipCosmeticEvm';
-import { getNoEnsProvider } from './hooks/evm/providerUtils';
 // Components & Utils
 import { PetStats, FoodItem, GameMessage, MissionStatus, ToyItem } from './components/type';
 import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, MISSIONS, getPandaDialogue } from './components/constant';
@@ -20,62 +17,96 @@ import BallShooter from './components/minigames/BallShooter';
 import BambooCatcher from './components/minigames/BambooCatcher';
 import DinoJump from './components/minigames/DinoJump';
 
-const BASE_SEPOLIA_CHAIN_ID = 84532;
+const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532 in hex
 
 const App: React.FC = () => {
-  const { ready, authenticated, logout } = usePrivy();
-  const { wallets } = useWallets();
-  const router = useRouter();
-
-  // Wallet state from Privy
   const [evmAccount, setEvmAccount] = useState<string | undefined>(undefined);
-  const [evmSigner, setEvmSigner] = useState<any>(undefined);
-  const [ethereumProvider, setEthereumProvider] = useState<any>(undefined);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  // Auth guard: redirect to login if not authenticated
-  useEffect(() => {
-    if (ready && !authenticated) {
-      router.replace('/login');
+  // Connect wallet via window.ethereum
+  const connectWallet = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      alert('Please install a wallet (MetaMask or Coinbase Wallet) to continue.');
+      return;
     }
-  }, [ready, authenticated, router]);
+    setIsConnecting(true);
+    try {
+      // Request account access
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[];
 
-  // Get provider/signer from Privy wallet
-  useEffect(() => {
-    async function setupWallet() {
-      if (!ready || !authenticated || wallets.length === 0) return;
-
-      const wallet = wallets[0];
-
+      // Switch to Base Sepolia
       try {
-        await wallet.switchChain(BASE_SEPOLIA_CHAIN_ID);
-      } catch (e) {
-        console.error('Failed to switch chain:', e);
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }],
+        });
+      } catch (switchError: any) {
+        // Chain not added yet, add it
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: BASE_SEPOLIA_CHAIN_ID,
+              chainName: 'Base Sepolia',
+              nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+              rpcUrls: ['https://sepolia.base.org'],
+              blockExplorerUrls: ['https://sepolia.basescan.org'],
+            }],
+          });
+        }
       }
 
-      const rawProvider = await wallet.getEthereumProvider();
-      setEthereumProvider(rawProvider);
-
-      const provider = getNoEnsProvider(rawProvider as ethers.providers.ExternalProvider);
-      const signer = provider.getSigner();
-      const address = await signer.getAddress();
-
-      setEvmSigner(signer);
-      setEvmAccount(address);
+      if (accounts && accounts.length > 0) {
+        setEvmAccount(accounts[0]);
+      }
+    } catch (e: any) {
+      console.error('Failed to connect wallet:', e);
     }
+    setIsConnecting(false);
+  }, []);
 
-    setupWallet();
-  }, [ready, authenticated, wallets]);
+  // Auto-connect if already connected
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.ethereum) return;
+    const eth = window.ethereum;
+    (async () => {
+      try {
+        const accounts = await eth.request({ method: 'eth_accounts' }) as string[];
+        if (accounts && accounts.length > 0) {
+          setEvmAccount(accounts[0]);
+        }
+      } catch {}
+    })();
+
+    // Listen for account changes
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length > 0) {
+        setEvmAccount(accounts[0]);
+      } else {
+        setEvmAccount(undefined);
+      }
+    };
+    eth.on?.('accountsChanged', handleAccountsChanged);
+    return () => {
+      eth.removeListener?.('accountsChanged', handleAccountsChanged);
+    };
+  }, []);
+
+  // Disconnect
+  const disconnect = useCallback(() => {
+    setEvmAccount(undefined);
+  }, []);
 
   // Blockchain state
   const [hasCreatedPanda, setHasCreatedPanda] = useState(false);
   const [pandaName, setPandaName] = useState<string | null>(null);
   const [showCosmeticMinter, setShowCosmeticMinter] = useState(false);
 
-  // Use EVM hooks with provider from Privy
-  const { pandas: ownedPandas, isLoading: isLoadingPandas } = useQueryPandasEvm(evmAccount, ethereumProvider);
-  const { cosmetics: ownedCosmetics } = useQueryCosmeticsEvm(evmAccount, ethereumProvider);
-  const { equipCosmetic } = useEquipCosmeticEvm(evmSigner, ethereumProvider);
-  const { unequipCosmetic } = useUnequipCosmeticEvm(evmSigner, ethereumProvider);
+  // Use simplified EVM hooks
+  const { pandas: ownedPandas, isLoading: isLoadingPandas } = useQueryPandasEvm(evmAccount);
+  const { cosmetics: ownedCosmetics } = useQueryCosmeticsEvm(evmAccount);
+  const { equipCosmetic } = useEquipCosmeticEvm();
+  const { unequipCosmetic } = useUnequipCosmeticEvm();
   const [isEquipping, setIsEquipping] = useState(false);
   const [isUnequipping, setIsUnequipping] = useState(false);
 
@@ -272,7 +303,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // Check if this is toggling off (unequip)
     if (equippedCosmeticId === cosmeticId) {
       try {
         const cosmeticToRemove = ownedCosmetics.find(c => c.objectId === cosmeticId);
@@ -280,7 +310,6 @@ const App: React.FC = () => {
           handlePandaTalk("Cannot unequip!");
           return;
         }
-
         setIsUnequipping(true);
         await unequipCosmetic({
           pandaId: ownedPandas[0].objectId,
@@ -322,13 +351,74 @@ const App: React.FC = () => {
     updateMissionProgress('play', score);
   };
 
-  // Show loading while Privy is initializing or redirecting to login
-  if (!ready || !authenticated) {
+  // ==========================================
+  // CONNECT WALLET SCREEN (no wallet connected)
+  // ==========================================
+  if (!evmAccount) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-6xl animate-bounce">🐼</div>
-          <p className="text-2xl font-bold text-gray-800">Loading...</p>
+      <div className="fixed inset-0 bg-gradient-to-br from-purple-200 via-pink-100 to-blue-200 flex items-center justify-center p-4">
+        {/* Floating panda emojis */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {["top-10 left-10", "top-20 right-16", "bottom-32 left-20", "bottom-16 right-10", "top-1/2 left-5", "top-1/3 right-8"].map(
+            (pos, i) => (
+              <div
+                key={i}
+                className={`absolute ${pos} text-6xl opacity-15 animate-bounce`}
+                style={{ animationDelay: `${i * 0.3}s`, animationDuration: `${2 + i * 0.5}s` }}
+              >
+                🐼
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="bg-white rounded-[3rem] border-8 border-gray-800 shadow-[0_20px_0_#2d2d2d] p-10 max-w-md w-full space-y-8 text-center relative z-10">
+          <div className="space-y-4">
+            <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full border-8 border-gray-800 shadow-[4px_4px_0px_#2d2d2d]">
+              <span className="text-7xl">🐼</span>
+            </div>
+            <h1 className="text-4xl font-black text-gray-800 tracking-tight">
+              Panda Pet
+            </h1>
+            <p className="text-gray-500 font-medium text-lg">
+              Your virtual pet on Base blockchain
+            </p>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2">
+            {[
+              { emoji: "🎮", label: "Play Games" },
+              { emoji: "🍕", label: "Feed Panda" },
+              { emoji: "✨", label: "NFT Cosmetics" },
+              { emoji: "🏆", label: "Missions" },
+            ].map((feature) => (
+              <span
+                key={feature.label}
+                className="bg-purple-100 text-purple-700 font-bold text-sm px-4 py-2 rounded-full border-2 border-purple-300"
+              >
+                {feature.emoji} {feature.label}
+              </span>
+            ))}
+          </div>
+
+          <button
+            onClick={connectWallet}
+            disabled={isConnecting}
+            className="w-full h-14 text-xl font-black bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 active:translate-y-0 active:shadow-[2px_2px_0px_#2d2d2d] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+          >
+            {isConnecting ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <>
+                <span className="text-2xl">🔗</span>
+                Connect Wallet
+              </>
+            )}
+          </button>
+
+          <p className="text-xs text-gray-400 font-medium">
+            MetaMask &middot; Coinbase Wallet &middot; Base Sepolia
+          </p>
         </div>
       </div>
     );
@@ -375,9 +465,7 @@ const App: React.FC = () => {
           onSuccess={() => {
             setHasCreatedPanda(true);
           }}
-          evmSigner={evmSigner}
           evmAccount={evmAccount}
-          ethereumProvider={ethereumProvider}
         />
       )}
 
@@ -419,7 +507,7 @@ const App: React.FC = () => {
                   </div>
                 )}
                 <button
-                  onClick={logout}
+                  onClick={disconnect}
                   className="bg-red-400 text-white font-bold px-3 py-2 rounded-lg border-4 border-gray-800 shadow-[2px_2px_0px_#2d2d2d] hover:-translate-y-1 transition-transform text-sm"
                 >
                   Logout

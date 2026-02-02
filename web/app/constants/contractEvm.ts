@@ -1,5 +1,5 @@
 // Contract address and ABI for PandaNFT (Solidity)
-export const PANDA_NFT_ADDRESS = process.env.NEXT_PUBLIC_PANDA_NFT_ADDRESS || "0xYourPandaNFTContractAddress";
+export const PANDA_NFT_ADDRESS = "0xFd7cb65d2F95AF8935bD3947b893ba3032e7Ed6e";
 export const PANDA_NFT_ABI = [
   // ERC721 Standard Functions
   "function balanceOf(address owner) view returns (uint256)",

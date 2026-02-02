@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { PANDA_NFT_ADDRESS, PANDA_NFT_ABI } from '../../constants/contractEvm';
-import { getNoEnsProvider } from './providerUtils';
+import { getReadProvider } from './providerUtils';
 
-// Match Sui structure for consistency
 export type PandaFields = {
   id: { id: string };
   name: string;
@@ -15,19 +14,16 @@ export type PandaObject = {
   fields: PandaFields;
 };
 
-export default function useQueryPandasEvm(
-  account: string | undefined,
-  ethereumProvider?: any
-) {
+export default function useQueryPandasEvm(account: string | undefined) {
   const [pandas, setPandas] = useState<PandaObject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!account || !ethereumProvider) return;
+    if (!account) return;
     const fetchPandas = async () => {
       setIsLoading(true);
       try {
-        const provider = getNoEnsProvider(ethereumProvider);
+        const provider = getReadProvider();
         const contract = new ethers.Contract(PANDA_NFT_ADDRESS, PANDA_NFT_ABI, provider);
         const balance = await contract.balanceOf(account);
         const pandaList: PandaObject[] = [];
@@ -51,7 +47,7 @@ export default function useQueryPandasEvm(
       setIsLoading(false);
     };
     fetchPandas();
-  }, [account, ethereumProvider]);
+  }, [account]);
 
   return { pandas, isLoading };
 }
