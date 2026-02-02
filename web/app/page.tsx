@@ -322,8 +322,8 @@ const App: React.FC = () => {
     updateMissionProgress('play', score);
   };
 
-  // Show loading while Privy is initializing
-  if (!ready) {
+  // Show loading while Privy is initializing or redirecting to login
+  if (!ready || !authenticated) {
     return (
       <div className="fixed inset-0 bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center">
         <div className="text-center space-y-4">
