@@ -439,6 +439,30 @@ const App: React.FC = () => {
           }}
           evmSigner={evmSigner}
           evmAccount={evmAccount}
+          onConnectWallet={async () => {
+            if (typeof window !== 'undefined' && (window as any).ethereum) {
+              const ethersModule = await import('ethers');
+              const provider = new ethersModule.ethers.providers.Web3Provider(
+                (window as any).ethereum,
+                'any'
+              );
+              await provider.send('eth_requestAccounts', []);
+              const network = await provider.getNetwork();
+              if (network.chainId !== BASE_SEPOLIA_CHAIN_ID) {
+                setWrongNetwork(true);
+                await switchToBaseSepolia();
+              }
+              const baseProvider = new ethersModule.ethers.providers.Web3Provider(
+                (window as any).ethereum,
+                { chainId: BASE_SEPOLIA_CHAIN_ID, name: 'base-sepolia' }
+              );
+              baseProvider.resolveName = async (name: string) => name;
+              const signer = baseProvider.getSigner();
+              setEvmSigner(signer);
+              setEvmAccount(await signer.getAddress());
+              setWrongNetwork(false);
+            }
+          }}
         />
       )}
 

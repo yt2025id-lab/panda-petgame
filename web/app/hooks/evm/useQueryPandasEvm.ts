@@ -4,6 +4,15 @@ import { PANDA_NFT_ADDRESS, PANDA_NFT_ABI } from '../../constants/contractEvm';
 
 const BASE_SEPOLIA_NETWORK = { chainId: 84532, name: 'base-sepolia' };
 
+function getNoEnsProvider() {
+  const provider = new ethers.providers.Web3Provider(
+    (window as any).ethereum,
+    BASE_SEPOLIA_NETWORK
+  );
+  provider.resolveName = async (name: string) => name;
+  return provider;
+}
+
 // Match Sui structure for consistency
 export type PandaFields = {
   id: { id: string };
@@ -25,7 +34,7 @@ export default function useQueryPandasEvm(account: string | undefined) {
     const fetchPandas = async () => {
       setIsLoading(true);
       try {
-        const provider = new ethers.providers.Web3Provider((window as any).ethereum, BASE_SEPOLIA_NETWORK);
+        const provider = getNoEnsProvider();
         const contract = new ethers.Contract(PANDA_NFT_ADDRESS, PANDA_NFT_ABI, provider);
         const balance = await contract.balanceOf(account);
         const pandaList: PandaObject[] = [];

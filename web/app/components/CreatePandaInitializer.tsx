@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, Wand2, Wallet } from "lucide-react";
 import useCreatePandaEvm from '../hooks/evm/useCreatePandaEvm';
 
 interface CreatePandaInitializerProps {
@@ -8,6 +8,7 @@ interface CreatePandaInitializerProps {
     onCancel?: () => void;
     evmSigner?: any;
     evmAccount?: string;
+    onConnectWallet?: () => Promise<void>;
 }
 
 const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
@@ -15,10 +16,23 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
     onCancel,
     evmSigner,
     evmAccount,
+    onConnectWallet,
 }) => {
     const [pandaName, setPandaName] = useState("");
     const { createPanda: createPandaEvm } = useCreatePandaEvm(evmSigner);
     const [isCreating, setIsCreating] = useState(false);
+    const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+
+    const handleConnectWallet = async () => {
+        if (!onConnectWallet) return;
+        setIsConnectingWallet(true);
+        try {
+            await onConnectWallet();
+        } catch {
+            toast.error("Failed to connect wallet");
+        }
+        setIsConnectingWallet(false);
+    };
 
     const handleCreatePanda = async () => {
         if (!pandaName.trim()) {
@@ -67,7 +81,29 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
                     </p>
                 </div>
 
-                {/* Form */}
+                {/* Connect Wallet Button - show when not connected */}
+                {!evmAccount && onConnectWallet && (
+                    <button
+                        onClick={handleConnectWallet}
+                        disabled={isConnectingWallet}
+                        className="w-full h-12 text-lg font-bold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                        {isConnectingWallet ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                Connecting...
+                            </>
+                        ) : (
+                            <>
+                                <Wallet className="w-5 h-5" />
+                                Connect Wallet
+                            </>
+                        )}
+                    </button>
+                )}
+
+                {/* Form - show when wallet is connected */}
+                {evmAccount && (
                 <div className="space-y-4">
                     {/* Name Input */}
                     <div className="space-y-2">
@@ -128,6 +164,7 @@ const CreatePandaInitializer: React.FC<CreatePandaInitializerProps> = ({
                         )}
                     </button>
                 </div>
+                )}
 
                 {/* Info Box */}
                 <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 space-y-2">
