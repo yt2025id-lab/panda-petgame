@@ -152,22 +152,29 @@ const App: React.FC = () => {
     }
   }, [equippedCosmeticId, ownedPandas, ownedCosmetics, evmAccount, equipCosmetic, unequipCosmetic, gameState]);
 
+  const pendingScoreRef = React.useRef<number>(0);
+
   const handleMinigameEnd = useCallback((score: number, xpEarned: number, coinsEarned: number) => {
     gameState.addXP(xpEarned);
     gameState.setCoins(prev => prev + coinsEarned);
-    setActiveMinigame('NONE');
     sound.play('coin');
     gameState.handlePandaTalk(`Awesome game! Earned ${xpEarned} XP and ${coinsEarned} coins!`);
     gameState.updateMissionProgress('play', score);
-    // Submit score to leaderboard
+    pendingScoreRef.current = score;
+  }, [gameState, sound]);
+
+  const handleMinigameClose = useCallback(() => {
+    const score = pendingScoreRef.current;
+    setActiveMinigame('NONE');
     if (score > 0) {
       toast.promise(submitScore(score), {
         loading: 'Submitting score onchain...',
         success: `Score ${score} submitted to leaderboard!`,
         error: 'Failed to submit score (check gas)',
       });
+      pendingScoreRef.current = 0;
     }
-  }, [gameState, submitScore]);
+  }, [submitScore]);
 
   const handleClaimFaucet = useCallback(async () => {
     const toastId = toast.loading("Claiming IDRX from faucet...");
@@ -313,19 +320,19 @@ const App: React.FC = () => {
 
         {/* Minigame Modals */}
         {activeMinigame === 'BALLSHOOTER' && (
-          <BallShooter onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+          <BallShooter onClose={handleMinigameClose} onGameEnd={handleMinigameEnd} />
         )}
         {activeMinigame === 'BAMBOOCATCHER' && (
-          <BambooCatcher onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+          <BambooCatcher onClose={handleMinigameClose} onGameEnd={handleMinigameEnd} />
         )}
         {activeMinigame === 'DINOJUMP' && (
-          <DinoJump onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+          <DinoJump onClose={handleMinigameClose} onGameEnd={handleMinigameEnd} />
         )}
         {activeMinigame === 'MEMORYMATCH' && (
-          <MemoryMatch onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+          <MemoryMatch onClose={handleMinigameClose} onGameEnd={handleMinigameEnd} />
         )}
         {activeMinigame === 'BAMBOOSLICE' && (
-          <BambooSlice onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+          <BambooSlice onClose={handleMinigameClose} onGameEnd={handleMinigameEnd} />
         )}
 
         {/* Panda Initialization Screen */}
