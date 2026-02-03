@@ -248,5 +248,8 @@ export default function useGameState() {
     handlePetting,
     washPet,
     toggleSleep,
+    addCoins: useCallback((amount: number) => {
+      setCoins((prev: number) => prev + amount);
+    }, []),
   };
 }

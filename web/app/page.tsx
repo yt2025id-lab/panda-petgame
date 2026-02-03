@@ -184,6 +184,39 @@ const App: React.FC = () => {
     }
   }, [claimFaucet, refetchIDRX, gameState]);
 
+  const handleConvertToCoins = useCallback(async (idrxAmount: number) => {
+    const coinsToAdd = Math.floor(idrxAmount / 1000);
+    if (coinsToAdd <= 0) return;
+
+    const toastId = toast.loading("Converting IDRX to Coins...");
+    try {
+      const { ethers } = await import('ethers');
+      const { getWriteProvider } = await import('./hooks/evm/providerUtils');
+      const { IDRX_ADDRESS, IDRX_ABI } = await import('./constants/idrxContract');
+      const { MARKETPLACE_ADDRESS } = await import('./constants/marketplaceContract');
+
+      const provider = getWriteProvider();
+      const signer = provider.getSigner();
+      const idrxContract = new ethers.Contract(IDRX_ADDRESS, IDRX_ABI, signer);
+
+      // MockIDRX has 2 decimals
+      const rawAmount = ethers.utils.parseUnits(String(idrxAmount), 2);
+      const tx = await idrxContract.transfer(MARKETPLACE_ADDRESS, rawAmount);
+      await tx.wait();
+
+      gameState.addCoins(coinsToAdd);
+      refetchIDRX();
+      sound.play('coin');
+      toast.success(`Converted ${idrxAmount.toLocaleString()} IDRX → ${coinsToAdd} Coins!`, { id: toastId });
+      gameState.handlePandaTalk(`Got ${coinsToAdd} coins from IDRX!`);
+    } catch (error: any) {
+      console.error("Convert error:", error);
+      const msg = error?.reason || error?.message || "Failed to convert";
+      toast.error(msg.length > 80 ? "Failed to convert IDRX. Check balance or gas." : msg, { id: toastId });
+      throw error;
+    }
+  }, [gameState, refetchIDRX, sound]);
+
   const handleClaimAchievement = useCallback(async (achievementId: number) => {
     const toastId = toast.loading("Claiming achievement...");
     try {
@@ -497,6 +530,7 @@ const App: React.FC = () => {
                   canClaim={canClaimFaucet}
                   isClaiming={isClaimingFaucet}
                   onClaimFaucet={handleClaimFaucet}
+                  onConvertToCoins={handleConvertToCoins}
                   onClose={() => setActiveMenu('NONE')}
                 />
               )}
