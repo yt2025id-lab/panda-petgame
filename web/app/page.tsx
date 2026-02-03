@@ -365,7 +365,7 @@ const App: React.FC = () => {
                         className="flex-shrink-0 bg-orange-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-orange-100 transition-all cursor-grab active:cursor-grabbing hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
                       >
                         <div className="text-4xl">{food.emoji}</div>
-                        <div className="text-xs font-black mt-2 text-gray-800">${food.cost}</div>
+                        <div className="text-xs font-black mt-2 text-gray-800">{food.cost} Coins</div>
                       </div>
                     ))}
                   </div>
