@@ -3,8 +3,14 @@ import React from 'react';
 import { AchievementInfo } from '../hooks/evm/useAchievements';
 import { ACHIEVEMENT_EMOJIS } from '../constants/achievementsContract';
 
+export interface AchievementRequirement {
+  met: boolean;
+  progress: string; // e.g. "12/50 feeds"
+}
+
 interface AchievementsModalProps {
   achievements: AchievementInfo[];
+  requirements: Record<number, AchievementRequirement>;
   isLoading: boolean;
   isClaiming: boolean;
   onClaim: (achievementId: number) => void;
@@ -13,6 +19,7 @@ interface AchievementsModalProps {
 
 const AchievementsModal: React.FC<AchievementsModalProps> = ({
   achievements,
+  requirements,
   isLoading,
   isClaiming,
   onClaim,
@@ -58,36 +65,53 @@ const AchievementsModal: React.FC<AchievementsModalProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
-              {achievements.map((achievement) => (
-                <div
-                  key={achievement.id}
-                  className={`p-4 rounded-2xl border-4 transition-all flex flex-col items-center text-center ${
-                    achievement.claimed
-                      ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-400 shadow-[4px_4px_0px_#fbbf24]'
-                      : 'bg-gray-50 border-gray-200 opacity-70'
-                  }`}
-                >
-                  <div className={`text-4xl mb-2 ${achievement.claimed ? '' : 'grayscale'}`}>
-                    {getEmoji(achievement.imageEmoji)}
-                  </div>
-                  <h4 className="font-black text-sm text-gray-800 mb-1">{achievement.name}</h4>
-                  <p className="text-[10px] text-gray-400 mb-3">{achievement.description}</p>
-
-                  {achievement.claimed ? (
-                    <div className="px-3 py-1 bg-green-400 rounded-full border-2 border-gray-800 text-[10px] font-black uppercase">
-                      Earned!
+              {achievements.map((achievement) => {
+                const req = requirements[achievement.id];
+                const canClaim = req?.met && !achievement.claimed;
+                return (
+                  <div
+                    key={achievement.id}
+                    className={`p-4 rounded-2xl border-4 transition-all flex flex-col items-center text-center ${
+                      achievement.claimed
+                        ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-400 shadow-[4px_4px_0px_#fbbf24]'
+                        : canClaim
+                        ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400 shadow-[4px_4px_0px_#22c55e]'
+                        : 'bg-gray-50 border-gray-200 opacity-70'
+                    }`}
+                  >
+                    <div className={`text-4xl mb-2 ${achievement.claimed ? '' : canClaim ? '' : 'grayscale'}`}>
+                      {getEmoji(achievement.imageEmoji)}
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => onClaim(achievement.id)}
-                      disabled={isClaiming}
-                      className="px-3 py-1 bg-purple-400 text-white rounded-full border-2 border-gray-800 text-[10px] font-black uppercase hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
-                    >
-                      {isClaiming ? 'Claiming...' : 'Claim'}
-                    </button>
-                  )}
-                </div>
-              ))}
+                    <h4 className="font-black text-sm text-gray-800 mb-1">{achievement.name}</h4>
+                    <p className="text-[10px] text-gray-400 mb-1">{achievement.description}</p>
+
+                    {/* Progress indicator */}
+                    {!achievement.claimed && req && (
+                      <p className={`text-[10px] font-bold mb-2 ${req.met ? 'text-green-600' : 'text-gray-400'}`}>
+                        {req.progress}
+                      </p>
+                    )}
+
+                    {achievement.claimed ? (
+                      <div className="px-3 py-1 bg-green-400 rounded-full border-2 border-gray-800 text-[10px] font-black uppercase">
+                        Earned!
+                      </div>
+                    ) : canClaim ? (
+                      <button
+                        onClick={() => onClaim(achievement.id)}
+                        disabled={isClaiming}
+                        className="px-3 py-1 bg-green-500 text-white rounded-full border-2 border-gray-800 text-[10px] font-black uppercase hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 animate-pulse"
+                      >
+                        {isClaiming ? 'Claiming...' : 'Claim!'}
+                      </button>
+                    ) : (
+                      <div className="px-3 py-1 bg-gray-200 text-gray-500 rounded-full border-2 border-gray-300 text-[10px] font-black uppercase">
+                        Locked
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

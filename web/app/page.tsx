@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 // Hooks
 import useWallet from './hooks/useWallet';
@@ -22,7 +22,7 @@ import GameHeader from './components/GameHeader';
 import BottomNav, { MenuType } from './components/BottomNav';
 import ProfileModal from './components/ProfileModal';
 import LeaderboardModal from './components/LeaderboardModal';
-import AchievementsModal from './components/AchievementsModal';
+import AchievementsModal, { AchievementRequirement } from './components/AchievementsModal';
 import IDRXWallet from './components/IDRXWallet';
 import SocialModal from './components/SocialModal';
 import NetworkGuard from './components/NetworkGuard';
@@ -175,6 +175,26 @@ const App: React.FC = () => {
       toast.error(msg.length > 80 ? "Failed to claim achievement. Requirements not met." : msg, { id: toastId });
     }
   }, [claimAchievement, gameState]);
+
+  // Achievement requirements validation
+  const achievementRequirements = useMemo((): Record<number, AchievementRequirement> => {
+    const feedProgress = gameState.missionStatuses.find(m => m.missionId === 'm1')?.progress ?? 0;
+    const playProgress = gameState.missionStatuses.find(m => m.missionId === 'm4')?.progress ?? 0;
+    const level = gameState.stats.level;
+    const cosmeticsCount = ownedCosmetics.length;
+    const hasIDRX = Number(idrxBalance) > 0;
+
+    return {
+      0: { met: hasCreatedPanda, progress: hasCreatedPanda ? 'Panda created!' : 'Create a panda' },
+      1: { met: feedProgress >= 50, progress: `${Math.min(feedProgress, 50)}/50 feeds` },
+      2: { met: playProgress >= 500, progress: `${Math.min(playProgress, 500)}/500 score` },
+      3: { met: level >= 5, progress: `Level ${level}/5` },
+      4: { met: cosmeticsCount >= 3, progress: `${Math.min(cosmeticsCount, 3)}/3 cosmetics` },
+      5: { met: hasIDRX, progress: hasIDRX ? 'IDRX claimed!' : 'Claim from faucet' },
+      6: { met: true, progress: 'Visit friends to unlock' },
+      7: { met: level >= 30, progress: `Level ${level}/30` },
+    };
+  }, [hasCreatedPanda, gameState.missionStatuses, gameState.stats.level, ownedCosmetics.length, idrxBalance]);
 
   const handleDropItem = () => {
     if (draggedFood) gameState.feedPet(draggedFood);
@@ -418,6 +438,7 @@ const App: React.FC = () => {
               {activeMenu === 'ACHIEVEMENTS' && (
                 <AchievementsModal
                   achievements={achievements}
+                  requirements={achievementRequirements}
                   isLoading={isLoadingAchievements}
                   isClaiming={isClaimingAchievement}
                   onClaim={handleClaimAchievement}
