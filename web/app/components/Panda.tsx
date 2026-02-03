@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { PetStats } from './type';
 
 export interface CosmeticItem {
@@ -39,7 +39,57 @@ const Panda: React.FC<PandaProps> = ({
   const [isWiggling, setIsWiggling] = useState(false);
   const [isJumping, setIsJumping] = useState(false);
   const [hearts, setHearts] = useState<{ id: number; x: number; y: number; type: string }[]>([]);
+  const [idleAnim, setIdleAnim] = useState<string | null>(null);
+  const [idleEmoji, setIdleEmoji] = useState<string | null>(null);
   const pandaRef = React.useRef<HTMLDivElement>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Idle behavior system - random animation every 8-15s
+  const triggerIdleBehavior = useCallback(() => {
+    if (isSleeping || isEating || isWashing) return;
+
+    // Weight behaviors based on mood
+    const behaviors: { anim: string; emoji: string; weight: number }[] = [
+      { anim: 'panda-wiggle', emoji: '🎵', weight: stats.fun > 50 ? 3 : 1 },
+      { anim: 'panda-spin', emoji: '💫', weight: stats.fun > 70 ? 2 : 0.5 },
+      { anim: 'panda-shake', emoji: '😤', weight: stats.hunger < 30 ? 3 : 0.5 },
+      { anim: 'panda-yawn', emoji: '🥱', weight: stats.energy < 40 ? 4 : 1 },
+      { anim: 'panda-wave', emoji: '👋', weight: 1.5 },
+      { anim: 'panda-bounce', emoji: '🎉', weight: stats.fun > 60 ? 2 : 0.5 },
+    ];
+
+    const totalWeight = behaviors.reduce((sum, b) => sum + b.weight, 0);
+    let random = Math.random() * totalWeight;
+    let chosen = behaviors[0];
+    for (const b of behaviors) {
+      random -= b.weight;
+      if (random <= 0) { chosen = b; break; }
+    }
+
+    setIdleAnim(chosen.anim);
+    setIdleEmoji(chosen.emoji);
+    setTimeout(() => {
+      setIdleAnim(null);
+      setIdleEmoji(null);
+    }, 1500);
+  }, [isSleeping, isEating, isWashing, stats.fun, stats.hunger, stats.energy]);
+
+  useEffect(() => {
+    if (isSleeping) return;
+
+    const scheduleNext = () => {
+      const delay = 8000 + Math.random() * 7000; // 8-15s
+      idleTimerRef.current = setTimeout(() => {
+        triggerIdleBehavior();
+        scheduleNext();
+      }, delay);
+    };
+    scheduleNext();
+
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [isSleeping, triggerIdleBehavior]);
 
   useEffect(() => {
     if (isEating) {
@@ -131,7 +181,8 @@ const Panda: React.FC<PandaProps> = ({
       ref={pandaRef}
       className={`relative cursor-grab active:cursor-grabbing transform-gpu
         ${isEating ? 'panda-jiggle' :
-          isJumping ? 'panda-jump' : 'float-animation'} 
+          isJumping ? 'panda-jump' :
+          idleAnim ? idleAnim : 'float-animation'}
         ${isOver ? 'scale-110 rotate-2' : 'scale-100'}
         smooth-transition`}
       onPointerMove={handlePointerMove}
@@ -338,6 +389,13 @@ const Panda: React.FC<PandaProps> = ({
           </g>
         )}
       </svg>
+
+      {/* Idle Emoji */}
+      {idleEmoji && !isEating && !isWashing && (
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-3xl animate-bounce pointer-events-none">
+          {idleEmoji}
+        </div>
+      )}
 
       {/* Bubble Message */}
       {(isEating || isWashing) && (

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import useSound from "../../hooks/useSound";
 
 interface BambooSliceProps {
   onClose: () => void;
@@ -41,6 +42,7 @@ const BOMB_PENALTY = 20;
 const ITEM_SIZE = 48;
 
 export default function BambooSlice({ onClose, onGameEnd }: BambooSliceProps) {
+  const sound = useSound();
   const [gameState, setGameState] = useState<"ready" | "playing" | "over">("ready");
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
@@ -184,6 +186,7 @@ export default function BambooSlice({ onClose, onGameEnd }: BambooSliceProps) {
   );
 
   const endGame = useCallback(() => {
+    sound.play('gameover');
     setGameState("over");
     gameStateRef.current = "over";
     if (timerIntervalRef.current) {
@@ -264,6 +267,7 @@ export default function BambooSlice({ onClose, onGameEnd }: BambooSliceProps) {
           hitSomething = true;
 
           if (item.isBomb) {
+            sound.play('error');
             const newLives = Math.max(0, livesRef.current - 1);
             setLives(newLives);
             comboRef.current = 0;
@@ -275,6 +279,7 @@ export default function BambooSlice({ onClose, onGameEnd }: BambooSliceProps) {
             setScore((prev) => Math.max(0, prev - BOMB_PENALTY));
             scoreRef.current = Math.max(0, scoreRef.current - BOMB_PENALTY);
           } else {
+            sound.play('score');
             comboRef.current += 1;
             const c = comboRef.current;
             setCombo(c);

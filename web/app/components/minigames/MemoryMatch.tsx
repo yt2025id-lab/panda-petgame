@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import useSound from "../../hooks/useSound";
 
 interface MemoryMatchProps {
   onClose: () => void;
@@ -41,6 +42,7 @@ function createDeck(): Card[] {
 }
 
 const MemoryMatch: React.FC<MemoryMatchProps> = ({ onClose, onGameEnd }) => {
+  const sound = useSound();
   const [cards, setCards] = useState<Card[]>(() => createDeck());
   const [gameState, setGameState] = useState<"playing" | "ended">("playing");
   const [score, setScore] = useState(0);
@@ -108,6 +110,7 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ onClose, onGameEnd }) => {
       if (flippedIds.includes(id)) return;
 
       // Flip the card
+      sound.play('button');
       setCards((prev) =>
         prev.map((c) => (c.id === id ? { ...c, flipped: true } : c))
       );
@@ -123,6 +126,7 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ onClose, onGameEnd }) => {
 
         if (firstCard.emoji === secondCard.emoji) {
           // Match found
+          sound.play('score');
           setTimeout(() => {
             setCards((prev) =>
               prev.map((c) =>
@@ -138,6 +142,7 @@ const MemoryMatch: React.FC<MemoryMatchProps> = ({ onClose, onGameEnd }) => {
           }, 400);
         } else {
           // No match - flip back
+          sound.play('error');
           setTimeout(() => {
             setCards((prev) =>
               prev.map((c) =>

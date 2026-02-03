@@ -13,7 +13,10 @@ import useIDRXFaucet from './hooks/evm/useIDRXFaucet';
 import useLeaderboard from './hooks/evm/useLeaderboard';
 import useAchievements from './hooks/evm/useAchievements';
 import useBaseName from './hooks/evm/useBaseName';
+import useSound from './hooks/useSound';
 // Components
+import SoundToggle from './components/SoundToggle';
+import LevelUpCelebration from './components/LevelUpCelebration';
 import { FoodItem, ToyItem } from './components/type';
 import { FOOD_ITEMS } from './components/constant';
 import LandingPage from './components/LandingPage';
@@ -26,6 +29,8 @@ import AchievementsModal, { AchievementRequirement } from './components/Achievem
 import IDRXWallet from './components/IDRXWallet';
 import SocialModal from './components/SocialModal';
 import NetworkGuard from './components/NetworkGuard';
+import DailyCheckIn from './components/DailyCheckIn';
+import GameBackground from './components/GameBackground';
 import Tutorial from './components/Tutorial';
 import Panda from './components/Panda';
 import CreatePandaInitializer from './components/CreatePandaInitializer';
@@ -42,12 +47,16 @@ const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState(true);
   const { evmAccount, isConnecting, connectWallet, disconnect } = useWallet();
   const gameState = useGameState();
+  const sound = useSound();
 
   // Blockchain state
   const [hasCreatedPanda, setHasCreatedPanda] = useState(false);
   const [pandaName, setPandaName] = useState<string | null>(null);
   const [showCosmeticMinter, setShowCosmeticMinter] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpLevel, setLevelUpLevel] = useState(0);
+  const prevLevelRef = React.useRef(gameState.stats.level);
 
   // EVM hooks
   const { pandas: ownedPandas, isLoading: isLoadingPandas } = useQueryPandasEvm(evmAccount);
@@ -81,6 +90,16 @@ const App: React.FC = () => {
       }
     }
   }, [ownedPandas, isLoadingPandas, pandaName]);
+
+  // Detect level up
+  useEffect(() => {
+    if (gameState.stats.level > prevLevelRef.current) {
+      setLevelUpLevel(gameState.stats.level);
+      setShowLevelUp(true);
+      sound.play('levelup');
+    }
+    prevLevelRef.current = gameState.stats.level;
+  }, [gameState.stats.level, sound]);
 
   // Follow cursor
   useEffect(() => {
@@ -137,6 +156,7 @@ const App: React.FC = () => {
     gameState.addXP(xpEarned);
     gameState.setCoins(prev => prev + coinsEarned);
     setActiveMinigame('NONE');
+    sound.play('coin');
     gameState.handlePandaTalk(`Awesome game! Earned ${xpEarned} XP and ${coinsEarned} coins!`);
     gameState.updateMissionProgress('play', score);
     // Submit score to leaderboard
@@ -154,6 +174,7 @@ const App: React.FC = () => {
     try {
       await claimFaucet();
       refetchIDRX();
+      sound.play('coin');
       toast.success("Got 10,000 IDRX!", { id: toastId });
       gameState.handlePandaTalk("Got 10,000 IDRX from the faucet!");
     } catch (error: any) {
@@ -167,6 +188,7 @@ const App: React.FC = () => {
     const toastId = toast.loading("Claiming achievement...");
     try {
       await claimAchievement(achievementId);
+      sound.play('success');
       toast.success("Achievement unlocked!", { id: toastId });
       gameState.handlePandaTalk("Achievement unlocked!");
     } catch (error: any) {
@@ -197,8 +219,8 @@ const App: React.FC = () => {
   }, [hasCreatedPanda, gameState.missionStatuses, gameState.stats.level, ownedCosmetics.length, idrxBalance]);
 
   const handleDropItem = () => {
-    if (draggedFood) gameState.feedPet(draggedFood);
-    else if (draggedToy) gameState.playWithToy(draggedToy);
+    if (draggedFood) { gameState.feedPet(draggedFood); sound.play('eat'); }
+    else if (draggedToy) { gameState.playWithToy(draggedToy); sound.play('click'); }
   };
 
   // ==========================================
@@ -224,6 +246,23 @@ const App: React.FC = () => {
   return (
     <NetworkGuard>
       <div className={`fixed inset-0 transition-colors duration-1000 ${gameState.isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
+
+        {/* Animated Background */}
+        <GameBackground isSleeping={gameState.isSleeping} />
+
+        {/* Daily Check-In */}
+        {gameState.showDailyCheckIn && hasCreatedPanda && (
+          <DailyCheckIn
+            streak={gameState.streak.count}
+            onCheckIn={gameState.performDailyCheckIn}
+            bonus={gameState.dailyBonus}
+          />
+        )}
+
+        {/* Level Up Celebration */}
+        {showLevelUp && (
+          <LevelUpCelebration level={levelUpLevel} onComplete={() => setShowLevelUp(false)} />
+        )}
 
         {/* Tutorial Overlay */}
         {showTutorial && hasCreatedPanda && (
@@ -282,6 +321,7 @@ const App: React.FC = () => {
               baseName={baseName}
               onCoinsClick={() => setActiveMenu(activeMenu === 'COINS' ? 'NONE' : 'COINS')}
               onDisconnect={disconnect}
+              soundToggle={<SoundToggle isMuted={sound.isMuted} onToggle={sound.toggleMute} />}
             />
 
             {/* Main Game Area */}
@@ -302,7 +342,7 @@ const App: React.FC = () => {
                   mousePos={mousePos}
                   equippedCosmeticId={equippedCosmeticId}
                   equippedCosmetic={ownedCosmetics.find(c => c.objectId === equippedCosmeticId)}
-                  onClick={() => !gameState.isSleeping && gameState.handlePandaTalk("Ouch! That tickles!")}
+                  onClick={() => { if (!gameState.isSleeping) { sound.play('click'); gameState.handlePandaTalk("Ouch! That tickles!"); } }}
                   onPet={gameState.handlePetting}
                   onDropItem={handleDropItem}
                 />
@@ -321,7 +361,7 @@ const App: React.FC = () => {
                         draggable
                         onDragStart={() => { setDraggedFood(food); setDraggedToy(null); }}
                         onDragEnd={() => setDraggedFood(null)}
-                        onClick={() => gameState.feedPet(food)}
+                        onClick={() => { sound.play('eat'); gameState.feedPet(food); }}
                         className="flex-shrink-0 bg-orange-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-orange-100 transition-all cursor-grab active:cursor-grabbing hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
                       >
                         <div className="text-4xl">{food.emoji}</div>
@@ -409,12 +449,16 @@ const App: React.FC = () => {
                   coins={gameState.coins}
                   username="PandaKeeper"
                   missionStatuses={gameState.missionStatuses}
+                  dailyMissions={gameState.dailyMissions}
+                  dailyMissionStatuses={gameState.dailyMissionStatuses}
+                  streak={gameState.streak}
                   ownedCosmetics={ownedCosmetics}
                   equippedCosmeticId={equippedCosmeticId}
                   isEquipping={isEquipping}
                   isUnequipping={isUnequipping}
                   onClose={() => setActiveMenu('NONE')}
                   onClaimMission={gameState.claimMission}
+                  onClaimDailyMission={gameState.claimDailyMission}
                   onEquipCosmetic={handleEquipCosmetic}
                   onMintCosmetic={() => {
                     setActiveMenu('NONE');
@@ -478,8 +522,8 @@ const App: React.FC = () => {
               activeMenu={activeMenu}
               isSleeping={gameState.isSleeping}
               isWashing={gameState.isWashing}
-              onMenuChange={setActiveMenu}
-              onWash={() => { gameState.washPet(); setActiveMenu('NONE'); }}
+              onMenuChange={(menu) => { sound.play('swoosh'); setActiveMenu(menu); }}
+              onWash={() => { sound.play('wash'); gameState.washPet(); setActiveMenu('NONE'); }}
               onToggleSleep={gameState.toggleSleep}
             />
 

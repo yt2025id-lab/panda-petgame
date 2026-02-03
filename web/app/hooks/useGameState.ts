@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, useCallback } from 'react';
 import { PetStats, FoodItem, GameMessage, MissionStatus, ToyItem } from '../components/type';
-import { INITIAL_STATS, DECAY_RATES, MISSIONS, getPandaDialogue } from '../components/constant';
+import { INITIAL_STATS, DECAY_RATES, MISSIONS, getDailyMissions, getTodayKey, STREAK_REWARDS, getPandaDialogue } from '../components/constant';
 
 function loadSavedState<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -23,6 +23,23 @@ export default function useGameState() {
     loadSavedState('panda_missions', MISSIONS.map(m => ({ missionId: m.id, progress: 0, claimed: false })))
   );
 
+  // Daily missions and streak
+  const [dailyMissions] = useState(() => getDailyMissions());
+  const [dailyMissionStatuses, setDailyMissionStatuses] = useState<MissionStatus[]>(() => {
+    const todayKey = getTodayKey();
+    const saved = loadSavedState<{ date: string; statuses: MissionStatus[] }>('panda_daily', { date: '', statuses: [] });
+    if (saved.date === todayKey) return saved.statuses;
+    // New day - reset daily missions
+    return getDailyMissions().map(m => ({ missionId: m.id, progress: 0, claimed: false }));
+  });
+  const [streak, setStreak] = useState(() => loadSavedState('panda_streak', { count: 0, lastDate: '' }));
+  const [showDailyCheckIn, setShowDailyCheckIn] = useState(() => {
+    const todayKey = getTodayKey();
+    const lastCheckIn = loadSavedState('panda_checkin_date', '');
+    return lastCheckIn !== todayKey;
+  });
+  const [dailyBonus, setDailyBonus] = useState(0);
+
   // Save game state to localStorage
   useEffect(() => {
     localStorage.setItem('panda_stats', JSON.stringify(stats));
@@ -33,6 +50,12 @@ export default function useGameState() {
   useEffect(() => {
     localStorage.setItem('panda_missions', JSON.stringify(missionStatuses));
   }, [missionStatuses]);
+  useEffect(() => {
+    localStorage.setItem('panda_daily', JSON.stringify({ date: getTodayKey(), statuses: dailyMissionStatuses }));
+  }, [dailyMissionStatuses]);
+  useEffect(() => {
+    localStorage.setItem('panda_streak', JSON.stringify(streak));
+  }, [streak]);
 
   const handlePandaTalk = useCallback(async (customMessage?: string) => {
     if (isThinking || isSleeping) return;
@@ -52,7 +75,16 @@ export default function useGameState() {
       }
       return status;
     }));
-  }, []);
+    // Also update daily missions
+    setDailyMissionStatuses(prev => prev.map(status => {
+      const mission = dailyMissions.find(m => m.id === status.missionId);
+      if (mission && mission.type === type && !status.claimed) {
+        const newProgress = isAbsolute ? value : status.progress + value;
+        return { ...status, progress: Math.min(mission.requirement, newProgress) };
+      }
+      return status;
+    }));
+  }, [dailyMissions]);
 
   // Leveling logic
   useEffect(() => {
@@ -126,6 +158,41 @@ export default function useGameState() {
     }
   }, [missionStatuses, handlePandaTalk]);
 
+  const claimDailyMission = useCallback((missionId: string) => {
+    const status = dailyMissionStatuses.find(s => s.missionId === missionId);
+    const mission = dailyMissions.find(m => m.id === missionId);
+    if (status && mission && status.progress >= mission.requirement && !status.claimed) {
+      setCoins(prev => prev + mission.reward);
+      setDailyMissionStatuses(prev => prev.map(s => s.missionId === missionId ? { ...s, claimed: true } : s));
+      handlePandaTalk(`Daily mission done! +${mission.reward} coins! 🎯`);
+    }
+  }, [dailyMissionStatuses, dailyMissions, handlePandaTalk]);
+
+  const performDailyCheckIn = useCallback(() => {
+    const todayKey = getTodayKey();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+    const newStreak = streak.lastDate === yKey ? streak.count + 1 : 1;
+    setStreak({ count: newStreak, lastDate: todayKey });
+
+    // Daily bonus: 50-200 random coins
+    const bonus = 50 + Math.floor(Math.random() * 151);
+    setDailyBonus(bonus);
+    setCoins(prev => prev + bonus);
+
+    // Check streak milestones
+    const streakBonus = STREAK_REWARDS[newStreak];
+    if (streakBonus) {
+      setCoins(prev => prev + streakBonus);
+      handlePandaTalk(`${newStreak}-day streak! +${streakBonus} bonus coins! 🔥`);
+    }
+
+    localStorage.setItem('panda_checkin_date', JSON.stringify(todayKey));
+    setShowDailyCheckIn(false);
+  }, [streak, handlePandaTalk]);
+
   const handlePetting = useCallback(() => {
     if (isSleeping) return;
     setStats(prev => ({ ...prev, fun: Math.min(100, prev.fun + 0.5) }));
@@ -165,12 +232,19 @@ export default function useGameState() {
     messages,
     isThinking,
     missionStatuses,
+    dailyMissions,
+    dailyMissionStatuses,
+    streak,
+    showDailyCheckIn,
+    dailyBonus,
     handlePandaTalk,
     updateMissionProgress,
     addXP,
     feedPet,
     playWithToy,
     claimMission,
+    claimDailyMission,
+    performDailyCheckIn,
     handlePetting,
     washPet,
     toggleSleep,

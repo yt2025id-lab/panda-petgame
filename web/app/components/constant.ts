@@ -49,6 +49,49 @@ export const MISSIONS: Mission[] = [
   { id: 'm5', title: 'Growing Up', description: 'Reach Level 2', requirement: 2, reward: 100, type: 'level' },
 ];
 
+// Daily missions pool - 3 are selected each day
+export const DAILY_MISSIONS_POOL: Mission[] = [
+  { id: 'd1', title: 'Breakfast Time', description: 'Feed your panda 3 times', requirement: 3, reward: 30, type: 'feed' },
+  { id: 'd2', title: 'Big Appetite', description: 'Feed your panda 8 times', requirement: 8, reward: 60, type: 'feed' },
+  { id: 'd3', title: 'Cuddle Time', description: 'Pet your panda 15 times', requirement: 15, reward: 25, type: 'pet' },
+  { id: 'd4', title: 'Bath Day', description: 'Wash your panda 2 times', requirement: 2, reward: 35, type: 'wash' },
+  { id: 'd5', title: 'Deep Clean', description: 'Wash your panda 5 times', requirement: 5, reward: 55, type: 'wash' },
+  { id: 'd6', title: 'Gamer Panda', description: 'Score 50+ in minigames', requirement: 50, reward: 45, type: 'play' },
+  { id: 'd7', title: 'Pro Gamer', description: 'Score 200+ in minigames', requirement: 200, reward: 80, type: 'play' },
+  { id: 'd8', title: 'Petting Master', description: 'Pet your panda 30 times', requirement: 30, reward: 40, type: 'pet' },
+  { id: 'd9', title: 'Snack Attack', description: 'Feed panda 10 times', requirement: 10, reward: 70, type: 'feed' },
+  { id: 'd10', title: 'Quick Wash', description: 'Wash your panda once', requirement: 1, reward: 20, type: 'wash' },
+  { id: 'd11', title: 'Playtime!', description: 'Play 3 minigames', requirement: 3, reward: 40, type: 'play' },
+  { id: 'd12', title: 'Score Chaser', description: 'Score 100+ in minigames', requirement: 100, reward: 60, type: 'play' },
+  { id: 'd13', title: 'Loving Keeper', description: 'Pet panda 50 times', requirement: 50, reward: 55, type: 'pet' },
+  { id: 'd14', title: 'Hungry Hippo', description: 'Feed panda 15 times', requirement: 15, reward: 80, type: 'feed' },
+  { id: 'd15', title: 'Spa Day', description: 'Wash your panda 3 times', requirement: 3, reward: 45, type: 'wash' },
+];
+
+// Select 3 daily missions based on date seed
+export function getDailyMissions(): Mission[] {
+  const today = new Date();
+  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const pool = [...DAILY_MISSIONS_POOL];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.abs((seed * (i + 7) * 31) % (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, 3);
+}
+
+export function getTodayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export const STREAK_REWARDS: Record<number, number> = {
+  3: 100,
+  7: 300,
+  14: 500,
+  30: 1000,
+};
+
 // Panda dialogue messages based on stats
 const PANDA_DIALOGUE = {
   hungry: ['I\'m so hungry! 🤤', 'My belly is rumbling... 😭', 'Feed me please! 🎋', 'I\'m starving! 😫'],

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Panda from '../Panda';
 import { PetStats } from '../type';
+import useSound from '../../hooks/useSound';
 
 interface Bamboo {
   id: number;
@@ -15,6 +16,7 @@ interface BambooCatcherProps {
 }
 
 const BambooCatcher: React.FC<BambooCatcherProps> = ({ onClose, onGameEnd }) => {
+  const sound = useSound();
   const [gameState, setGameState] = useState<'playing' | 'ended'>('playing');
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
@@ -56,6 +58,7 @@ const BambooCatcher: React.FC<BambooCatcherProps> = ({ onClose, onGameEnd }) => 
           .filter(b => {
             if (b.y > GAME_HEIGHT) {
               // Missed bamboo
+              sound.play('error');
               setLives(l => {
                 const newLives = l - 1;
                 if (newLives <= 0) {
@@ -108,6 +111,7 @@ const BambooCatcher: React.FC<BambooCatcherProps> = ({ onClose, onGameEnd }) => 
 
   const handleBambooClick = (id: number, x: number, y: number) => {
     setBamboos(prev => prev.filter(b => b.id !== id));
+    sound.play('score');
     setScore(s => s + 1);
 
     // Add sparkle particles
@@ -127,6 +131,7 @@ const BambooCatcher: React.FC<BambooCatcherProps> = ({ onClose, onGameEnd }) => 
   const handleGameEnd = () => {
     if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     if (spawnIntervalRef.current) clearInterval(spawnIntervalRef.current);
+    sound.play('gameover');
 
     // Calculate rewards
     const xpEarned = score * 5;

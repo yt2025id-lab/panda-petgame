@@ -1,18 +1,22 @@
 "use client"
 import React from 'react';
-import { MissionStatus } from './type';
+import { Mission, MissionStatus } from './type';
 import { MISSIONS } from './constant';
 
 interface ProfileModalProps {
   coins: number;
   username: string;
   missionStatuses: MissionStatus[];
+  dailyMissions?: Mission[];
+  dailyMissionStatuses?: MissionStatus[];
+  streak?: { count: number; lastDate: string };
   ownedCosmetics: any[];
   equippedCosmeticId: string | null;
   isEquipping: boolean;
   isUnequipping: boolean;
   onClose: () => void;
   onClaimMission: (missionId: string) => void;
+  onClaimDailyMission?: (missionId: string) => void;
   onEquipCosmetic: (cosmeticId: string) => void;
   onMintCosmetic: () => void;
 }
@@ -21,12 +25,16 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
   coins,
   username,
   missionStatuses,
+  dailyMissions,
+  dailyMissionStatuses,
+  streak,
   ownedCosmetics,
   equippedCosmeticId,
   isEquipping,
   isUnequipping,
   onClose,
   onClaimMission,
+  onClaimDailyMission,
   onEquipCosmetic,
   onMintCosmetic,
 }) => {
@@ -53,10 +61,67 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
         </div>
 
         <div className="p-8 pt-6 overflow-y-auto custom-scrollbar flex-1">
-          {/* Missions Section */}
+          {/* Streak + Daily Missions */}
+          {dailyMissions && dailyMissionStatuses && (
+            <div className="mb-10">
+              {streak && (
+                <div className="mb-4 p-4 bg-gradient-to-r from-orange-100 to-red-100 rounded-2xl border-4 border-orange-300 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🔥</span>
+                    <div>
+                      <div className="font-black text-gray-800">{streak.count}-Day Streak</div>
+                      <div className="text-[10px] font-bold text-gray-500">Keep playing daily!</div>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {[...Array(7)].map((_, i) => (
+                      <div key={i} className={`w-5 h-5 rounded-full border-2 border-gray-800 text-[8px] font-black flex items-center justify-center ${i < streak.count % 7 ? 'bg-orange-400 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <h3 className="text-2xl font-game mb-4 text-orange-600 flex items-center gap-3">
+                <span className="bg-orange-100 p-2 rounded-2xl border-4 border-gray-800">🎯</span> Today's Missions
+              </h3>
+              <div className="space-y-4 mb-6">
+                {dailyMissions.map(m => {
+                  const status = dailyMissionStatuses.find(s => s.missionId === m.id);
+                  if (!status) return null;
+                  const canClaim = status.progress >= m.requirement && !status.claimed;
+                  return (
+                    <div key={m.id} className={`p-5 rounded-[2rem] border-4 border-gray-800 transition-all ${status.claimed ? 'bg-gray-100 opacity-60' : 'bg-orange-50 shadow-[4px_4px_0px_#2d2d2d]'}`}>
+                      <div className="flex justify-between items-start mb-3 text-left">
+                        <div>
+                          <h4 className="font-bold text-lg text-gray-800">{m.title}</h4>
+                          <p className="text-sm text-gray-400 font-medium">{m.description}</p>
+                        </div>
+                        <div className="bg-yellow-300 px-3 py-1 rounded-full border-4 border-gray-800 text-sm font-black whitespace-nowrap">+{m.reward} 💰</div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 bg-white rounded-full h-5 border-4 border-gray-800 overflow-hidden shadow-inner">
+                          <div className="h-full bg-orange-400 transition-all duration-700 ease-out" style={{ width: `${(status.progress / m.requirement) * 100}%` }} />
+                        </div>
+                        <button
+                          disabled={!canClaim}
+                          onClick={() => onClaimDailyMission?.(m.id)}
+                          className={`px-6 py-2 rounded-2xl border-4 border-gray-800 font-game text-sm transition-all ${status.claimed ? 'bg-gray-400' : canClaim ? 'bg-green-400 hover:scale-105 active:scale-90 shadow-[2px_2px_0_#2d2d2d]' : 'bg-gray-200 opacity-50'}`}
+                        >
+                          {status.claimed ? 'Done' : 'Claim'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Permanent Missions Section */}
           <div className="mb-10">
             <h3 className="text-2xl font-game mb-6 text-indigo-600 flex items-center gap-3">
-              <span className="bg-indigo-100 p-2 rounded-2xl border-4 border-gray-800">🎯</span> Daily Missions
+              <span className="bg-indigo-100 p-2 rounded-2xl border-4 border-gray-800">🏆</span> Missions
             </h3>
             <div className="space-y-4">
               {MISSIONS.map(m => {

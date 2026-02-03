@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Panda from '../Panda';
 import { PetStats } from '../type';
+import useSound from '../../hooks/useSound';
 
 interface DinoJumpProps {
   onClose: () => void;
@@ -11,10 +12,27 @@ interface Obstacle {
   id: number;
   x: number;
   height: number;
+  emoji: string;
 }
 
+interface DustParticle {
+  id: number;
+  x: number;
+  y: number;
+  life: number;
+}
+
+const OBSTACLE_TYPES = [
+  { emoji: '🌵', height: 55 },
+  { emoji: '🪨', height: 40 },
+  { emoji: '🦅', height: 55 },
+  { emoji: '🌵', height: 55 },
+  { emoji: '🪵', height: 35 },
+];
+
 const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
-  const [gameState, setGameState] = useState<'playing' | 'ended'>('playing');
+  const sound = useSound();
+  const [gameState, setGameState] = useState<'countdown' | 'playing' | 'ended'>('countdown');
   const [score, setScore] = useState(0);
   const [pandaY, setPandaY] = useState(269); // Start higher so the panda is fully visible
   const [pandaVelocityY, setPandaVelocityY] = useState(0);
@@ -22,6 +40,10 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [gameSpeed, setGameSpeed] = useState(5);
+  const [dustParticles, setDustParticles] = useState<DustParticle[]>([]);
+  const [screenShake, setScreenShake] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [showCountdown, setShowCountdown] = useState(true);
   
   const gameRef = useRef<HTMLDivElement>(null);
   const obstacleIdRef = useRef(0);
@@ -60,9 +82,30 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
+  // Countdown on start
+  useEffect(() => {
+    if (gameState !== 'countdown') return;
+    if (countdown <= 0) {
+      setShowCountdown(false);
+      setGameState('playing');
+      return;
+    }
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, gameState]);
+
   // Jump handler
   const handleJump = () => {
     if (gameState !== 'playing' || isJumping) return;
+    sound.play('click');
+    // Spawn dust particles on jump
+    const newDust: DustParticle[] = Array.from({ length: 4 }, (_, i) => ({
+      id: Date.now() + i,
+      x: PANDA_X + Math.random() * 20 - 10,
+      y: GROUND_Y - 5,
+      life: 15,
+    }));
+    setDustParticles(prev => [...prev, ...newDust]);
     setIsJumping(true);
     setPandaVelocityY(JUMP_FORCE);
   };
@@ -72,11 +115,12 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
     if (gameState !== 'playing') return;
 
     spawnIntervalRef.current = setInterval(() => {
-      const height = 55;
+      const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
       setObstacles(prev => [...prev, {
         id: obstacleIdRef.current++,
         x: GAME_WIDTH,
-        height
+        height: type.height,
+        emoji: type.emoji,
       }]);
     }, 2000); // Spawn every 2 seconds
 
@@ -148,6 +192,8 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
             pandaBottom > obsTop &&
             pandaTop < obsBottom
           ) {
+            setScreenShake(true);
+            setTimeout(() => setScreenShake(false), 400);
             setGameState('ended');
             return prev;
           }
@@ -155,6 +201,12 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
 
         return updated;
       });
+
+      // Update dust particles
+      setDustParticles(prev => prev
+        .map(p => ({ ...p, y: p.y - 1, x: p.x + (Math.random() - 0.5) * 2, life: p.life - 1 }))
+        .filter(p => p.life > 0)
+      );
     }, 20);
 
     return () => {
@@ -166,6 +218,7 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
     if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     if (spawnIntervalRef.current) clearInterval(spawnIntervalRef.current);
     if (scoreIntervalRef.current) clearInterval(scoreIntervalRef.current);
+    sound.play('gameover');
 
     // Calculate rewards
     const xpEarned = Math.floor(score * 0.5);
@@ -214,19 +267,32 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
         </div>
 
         {/* Game Area */}
-        {gameState === 'playing' && (
+        {(gameState === 'playing' || gameState === 'countdown') && (
           <div className="p-6">
             <div
               ref={gameRef}
-              className="relative bg-gradient-to-b from-sky-200 to-green-100 border-4 border-gray-800 rounded-2xl overflow-hidden shadow-inner cursor-pointer"
+              className={`relative bg-gradient-to-b from-sky-200 to-green-100 border-4 border-gray-800 rounded-2xl overflow-hidden shadow-inner cursor-pointer ${screenShake ? 'panda-shake' : ''}`}
               onClick={handleJump}
               style={{ width: GAME_WIDTH, height: GAME_HEIGHT, margin: '0 auto' }}
             >
-              {/* Ground line */}
-              <div 
-                className="absolute left-0 right-0 h-1 bg-gray-800"
-                style={{ top: GROUND_Y }}
-              />
+              {/* Countdown Overlay */}
+              {showCountdown && (
+                <div className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center">
+                  <div className="text-8xl font-black text-white animate-bounce" style={{ textShadow: '4px 4px 0 #2d2d2d' }}>
+                    {countdown > 0 ? countdown : 'GO!'}
+                  </div>
+                </div>
+              )}
+
+              {/* Animated ground tiles */}
+              <div className="absolute left-0 right-0 h-6 overflow-hidden" style={{ top: GROUND_Y }}>
+                <div className="h-1 bg-gray-800 w-full" />
+                <div className="flex gap-0 h-5 bg-gradient-to-b from-amber-200 to-amber-300" style={{ animation: gameState === 'playing' ? `ground-scroll ${10 / gameSpeed}s linear infinite` : 'none' }}>
+                  {[...Array(30)].map((_, i) => (
+                    <div key={i} className="w-[30px] flex-shrink-0 border-r border-amber-400/30 h-full" />
+                  ))}
+                </div>
+              </div>
 
               {/* Panda character */}
               <div
@@ -266,9 +332,24 @@ const DinoJump: React.FC<DinoJumpProps> = ({ onClose, onGameEnd }) => {
                   }}
                 >
                   <div className="w-full h-full flex items-center justify-center text-4xl">
-                    🌵
+                    {obs.emoji}
                   </div>
                 </div>
+              ))}
+
+              {/* Dust particles */}
+              {dustParticles.map(p => (
+                <div
+                  key={p.id}
+                  className="absolute rounded-full bg-amber-400 pointer-events-none"
+                  style={{
+                    left: p.x,
+                    top: p.y,
+                    width: 4,
+                    height: 4,
+                    opacity: p.life / 15,
+                  }}
+                />
               ))}
 
               {/* Instruction Text */}

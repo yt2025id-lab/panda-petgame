@@ -22,21 +22,29 @@ const NetworkGuard: React.FC<NetworkGuardProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
 
+  const getProvider = useCallback(() => {
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) return null;
+    return ethereum.providers
+      ? ethereum.providers.find((p: any) => p.isMetaMask) || ethereum.providers[0]
+      : ethereum;
+  }, []);
+
   const checkChain = useCallback(async () => {
     try {
-      const ethereum = (window as any).ethereum;
-      if (!ethereum) {
+      const provider = getProvider();
+      if (!provider) {
         setChecked(true);
         return;
       }
-      const chainIdHex: string = await ethereum.request({ method: 'eth_chainId' });
+      const chainIdHex: string = await provider.request({ method: 'eth_chainId' });
       setCurrentChainId(parseInt(chainIdHex, 16));
     } catch {
       // If we can't check, allow through
     } finally {
       setChecked(true);
     }
-  }, []);
+  }, [getProvider]);
 
   useEffect(() => {
     checkChain();
@@ -56,31 +64,53 @@ const NetworkGuard: React.FC<NetworkGuardProps> = ({ children }) => {
   }, [checkChain]);
 
   const handleSwitch = async () => {
-    const ethereum = (window as any).ethereum;
-    if (!ethereum) return;
-
     setIsSwitching(true);
     setError(null);
 
     try {
-      await ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }],
-      });
-    } catch (switchError: any) {
-      // 4902 = chain not added yet
-      if (switchError?.code === 4902) {
-        try {
-          await ethereum.request({
+      // Handle multiple wallet providers (MetaMask, Coinbase, etc.)
+      const ethereum = (window as any).ethereum;
+      if (!ethereum) {
+        setError('No wallet detected. Please install MetaMask or Coinbase Wallet.');
+        setIsSwitching(false);
+        return;
+      }
+
+      // Some wallets expose multiple providers
+      const provider = ethereum.providers
+        ? ethereum.providers.find((p: any) => p.isMetaMask) || ethereum.providers[0]
+        : ethereum;
+
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }],
+        });
+      } catch (switchError: any) {
+        // 4902 = chain not added yet, also check -32603 for some wallets
+        if (switchError?.code === 4902 || switchError?.code === -32603) {
+          await provider.request({
             method: 'wallet_addEthereumChain',
             params: [BASE_SEPOLIA_PARAMS],
           });
-        } catch (addError: any) {
-          setError(addError?.message || 'Failed to add Base Sepolia network.');
+        } else if (switchError?.code === 4001) {
+          setError('You rejected the network switch. Please try again.');
+        } else {
+          throw switchError;
         }
-      } else {
-        setError(switchError?.message || 'Failed to switch network.');
       }
+
+      // Re-check chain after switch
+      const newChainHex: string = await provider.request({ method: 'eth_chainId' });
+      const newChainId = parseInt(newChainHex, 16);
+      setCurrentChainId(newChainId);
+
+      if (newChainId !== BASE_SEPOLIA_CHAIN_ID_DECIMAL) {
+        setError('Switch did not complete. Please switch manually in your wallet.');
+      }
+    } catch (err: any) {
+      console.error('Network switch error:', err);
+      setError(err?.message || 'Failed to switch network. Try switching manually in your wallet.');
     } finally {
       setIsSwitching(false);
     }

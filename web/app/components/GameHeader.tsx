@@ -11,6 +11,7 @@ interface GameHeaderProps {
   baseName?: string | null;
   onCoinsClick: () => void;
   onDisconnect: () => void;
+  soundToggle?: React.ReactNode;
 }
 
 const GameHeader: React.FC<GameHeaderProps> = ({
@@ -21,6 +22,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
   baseName,
   onCoinsClick,
   onDisconnect,
+  soundToggle,
 }) => {
   const displayName = baseName || `${evmAccount.slice(0, 6)}...${evmAccount.slice(-4)}`;
 
@@ -52,6 +54,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
           <div className="hidden sm:block bg-green-500 text-white font-bold px-3 py-2 rounded-lg border-4 border-gray-800 shadow-[2px_2px_0px_#2d2d2d] text-sm truncate max-w-[140px]">
             {displayName}
           </div>
+          {soundToggle}
           <button
             onClick={onDisconnect}
             className="bg-red-400 text-white font-bold px-2 sm:px-3 py-1 sm:py-2 rounded-lg border-4 border-gray-800 shadow-[2px_2px_0px_#2d2d2d] hover:-translate-y-1 transition-transform text-xs sm:text-sm"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Panda from '../Panda';
 import { PetStats } from '../type';
+import useSound from '../../hooks/useSound';
 
 interface BallShooterProps {
   onClose: () => void;
@@ -8,6 +9,7 @@ interface BallShooterProps {
 }
 
 const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
+  const sound = useSound();
   const [gameState, setGameState] = useState<'playing' | 'ended'>('playing');
   const [score, setScore] = useState(0);
   const [shotsRemaining, setShotsRemaining] = useState(5);
@@ -130,6 +132,7 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
         ) {
           // Goal scored!
           goalScoredThisShot.current = true;
+          sound.play('score');
           setScore(s => s + 1);
 
           // Add particles
@@ -198,6 +201,7 @@ const BallShooter: React.FC<BallShooterProps> = ({ onClose, onGameEnd }) => {
   const handleGameEnd = () => {
     if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     if (goalMoveRef.current) clearInterval(goalMoveRef.current);
+    sound.play('gameover');
 
     // Calculate rewards
     const xpEarned = score * 10;
