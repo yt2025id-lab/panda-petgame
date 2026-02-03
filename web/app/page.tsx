@@ -1,5 +1,6 @@
 "use client"
 import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 // Hooks
 import useWallet from './hooks/useWallet';
 import useGameState from './hooks/useGameState';
@@ -24,6 +25,8 @@ import LeaderboardModal from './components/LeaderboardModal';
 import AchievementsModal from './components/AchievementsModal';
 import IDRXWallet from './components/IDRXWallet';
 import SocialModal from './components/SocialModal';
+import NetworkGuard from './components/NetworkGuard';
+import Tutorial from './components/Tutorial';
 import Panda from './components/Panda';
 import CreatePandaInitializer from './components/CreatePandaInitializer';
 import CreateCosmeticInitializer from './components/CreateCosmeticInitializer';
@@ -44,6 +47,7 @@ const App: React.FC = () => {
   const [hasCreatedPanda, setHasCreatedPanda] = useState(false);
   const [pandaName, setPandaName] = useState<string | null>(null);
   const [showCosmeticMinter, setShowCosmeticMinter] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   // EVM hooks
   const { pandas: ownedPandas, isLoading: isLoadingPandas } = useQueryPandasEvm(evmAccount);
@@ -87,7 +91,7 @@ const App: React.FC = () => {
 
   const handleEquipCosmetic = useCallback(async (cosmeticId: string) => {
     if (!ownedPandas || ownedPandas.length === 0) {
-      gameState.handlePandaTalk("You need a panda first!");
+      toast.error("You need a panda first!");
       return;
     }
 
@@ -96,16 +100,19 @@ const App: React.FC = () => {
         const cosmeticToRemove = ownedCosmetics.find(c => c.objectId === cosmeticId);
         if (!cosmeticToRemove || !evmAccount) return;
         setIsUnequipping(true);
+        const toastId = toast.loading("Removing cosmetic...");
         await unequipCosmetic({
           pandaId: ownedPandas[0].objectId,
           category: cosmeticToRemove.fields.category,
           recipient: evmAccount,
         });
         setEquippedCosmeticId(null);
+        toast.success("Cosmetic removed!", { id: toastId });
         gameState.handlePandaTalk("I took off my cosmetic.");
         setIsUnequipping(false);
       } catch (error) {
         console.error("Error unequipping cosmetic:", error);
+        toast.error("Failed to remove cosmetic");
         setIsUnequipping(false);
       }
       return;
@@ -113,12 +120,15 @@ const App: React.FC = () => {
 
     try {
       setIsEquipping(true);
+      const toastId = toast.loading("Equipping cosmetic...");
       await equipCosmetic({ pandaId: ownedPandas[0].objectId, cosmeticId });
       setEquippedCosmeticId(cosmeticId);
-      gameState.handlePandaTalk("I love my new cosmetic! ✨");
+      toast.success("Cosmetic equipped!", { id: toastId });
+      gameState.handlePandaTalk("I love my new cosmetic!");
       setIsEquipping(false);
     } catch (error) {
       console.error("Error equipping cosmetic:", error);
+      toast.error("Failed to equip cosmetic");
       setIsEquipping(false);
     }
   }, [equippedCosmeticId, ownedPandas, ownedCosmetics, evmAccount, equipCosmetic, unequipCosmetic, gameState]);
@@ -127,32 +137,42 @@ const App: React.FC = () => {
     gameState.addXP(xpEarned);
     gameState.setCoins(prev => prev + coinsEarned);
     setActiveMinigame('NONE');
-    gameState.handlePandaTalk(`Awesome game! Earned ${xpEarned} XP and ${coinsEarned} coins! 🎉`);
+    gameState.handlePandaTalk(`Awesome game! Earned ${xpEarned} XP and ${coinsEarned} coins!`);
     gameState.updateMissionProgress('play', score);
     // Submit score to leaderboard
     if (score > 0) {
-      submitScore(score);
+      toast.promise(submitScore(score), {
+        loading: 'Submitting score onchain...',
+        success: `Score ${score} submitted to leaderboard!`,
+        error: 'Failed to submit score (check gas)',
+      });
     }
   }, [gameState, submitScore]);
 
   const handleClaimFaucet = useCallback(async () => {
+    const toastId = toast.loading("Claiming IDRX from faucet...");
     try {
       await claimFaucet();
       refetchIDRX();
-      gameState.handlePandaTalk("Got 10,000 IDRX from the faucet! 💎");
-    } catch (error) {
+      toast.success("Got 10,000 IDRX!", { id: toastId });
+      gameState.handlePandaTalk("Got 10,000 IDRX from the faucet!");
+    } catch (error: any) {
       console.error("Faucet error:", error);
-      gameState.handlePandaTalk("Failed to claim IDRX...");
+      const msg = error?.reason || error?.message || "Failed to claim IDRX";
+      toast.error(msg.length > 80 ? "Failed to claim IDRX. Check gas or wait 1 hour." : msg, { id: toastId });
     }
   }, [claimFaucet, refetchIDRX, gameState]);
 
   const handleClaimAchievement = useCallback(async (achievementId: number) => {
+    const toastId = toast.loading("Claiming achievement...");
     try {
       await claimAchievement(achievementId);
-      gameState.handlePandaTalk("Achievement unlocked! 🏅");
-    } catch (error) {
+      toast.success("Achievement unlocked!", { id: toastId });
+      gameState.handlePandaTalk("Achievement unlocked!");
+    } catch (error: any) {
       console.error("Achievement error:", error);
-      gameState.handlePandaTalk("Failed to claim achievement...");
+      const msg = error?.reason || "Failed to claim achievement";
+      toast.error(msg.length > 80 ? "Failed to claim achievement. Requirements not met." : msg, { id: toastId });
     }
   }, [claimAchievement, gameState]);
 
@@ -182,8 +202,13 @@ const App: React.FC = () => {
   }
 
   return (
-    <>
+    <NetworkGuard>
       <div className={`fixed inset-0 transition-colors duration-1000 ${gameState.isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
+
+        {/* Tutorial Overlay */}
+        {showTutorial && hasCreatedPanda && (
+          <Tutorial onComplete={() => setShowTutorial(false)} />
+        )}
 
         {/* Cosmetic Minter Modal */}
         {showCosmeticMinter && (
@@ -441,7 +466,7 @@ const App: React.FC = () => {
           </>
         )}
       </div>
-    </>
+    </NetworkGuard>
   );
 };
 

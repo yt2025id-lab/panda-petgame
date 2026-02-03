@@ -1,290 +1,118 @@
-# 🐼 Panda - Virtual Pet NFT Game on Base
+# 🐼 Panda Pet Game
 
-A blockchain-based virtual pet game built on **Base** blockchain using **Solidity** smart contracts.
+**A virtual pet game built on Base blockchain with IDRX integration.**
 
-## 🎮 Game Features
+Mint your panda NFT, raise it, play minigames, earn IDRX tokens, climb the leaderboard — all onchain.
 
-### Core Gameplay
-- **Virtual Pet**: Create and care for your Panda NFT
-- **Stats System**: Manage Hunger, Health, Fun, Energy, and Hygiene
-- **Feeding System**: Buy and feed food to your Panda
-- **Mini-games**:
-  - ⚽ Ball Shooter
-  - 🎋 Bamboo Catcher
-  - 🦖 Dino Jump
-- **Cosmetics**: Equip cosmetic items to customize your Panda
-- **Missions**: Complete daily missions to earn coins
-- **Leveling**: Earn XP and level up your Panda
+> 🏆 Built for the **Base Indonesia Hackathon**
 
-### Blockchain Features
-- **Panda NFT**: ERC721 token with enumerable extension
-- **Public Minting**: Anyone can mint their own Panda NFT
-- **Cosmetic System**: Shared cosmetic templates (gas-efficient)
-- **Equip/Unequip**: Slot-based system for customization
-- **On-chain Ownership**: Full NFT ownership on Base
-- **Network Detection**: Auto-detect and prompt switch to Base Sepolia
-- **Persistent Progress**: Game state saved in localStorage
-
-## 🏗️ Project Structure
-
-```
-panda-app/
-├── contracts/
-│   └── base/
-│       └── contracts/
-│           └── PandaNFT.sol       # Main smart contract
-│
-├── web/                           # Next.js frontend
-│   ├── app/
-│   │   ├── components/
-│   │   │   ├── Panda.tsx          # Interactive SVG panda
-│   │   │   ├── StatBar.tsx        # Stat bar component
-│   │   │   ├── CreatePandaInitializer.tsx
-│   │   │   ├── CreateCosmeticInitializer.tsx
-│   │   │   ├── constant.ts        # Game constants
-│   │   │   ├── type.ts            # TypeScript types
-│   │   │   └── minigames/
-│   │   │       ├── BallShooter.tsx
-│   │   │       ├── BambooCatcher.tsx
-│   │   │       └── DinoJump.tsx
-│   │   ├── hooks/
-│   │   │   └── evm/               # Blockchain hooks
-│   │   ├── constants/
-│   │   │   └── contractEvm.ts     # Contract config & ABI
-│   │   └── page.tsx               # Main game UI
-│   └── package.json
-│
-└── README.md
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+
-- MetaMask or compatible Web3 wallet
-- Base Sepolia testnet ETH (for testing)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yt2025id-lab/panda-petgame.git
-cd panda-petgame
-
-# Install dependencies
-cd web
-npm install
-```
-
-### Environment Setup
-
-Create `web/.env.local`:
-
-```env
-NEXT_PUBLIC_PANDA_NFT_ADDRESS=0xYourDeployedContractAddress
-```
-
-### Run Development Server
-
-```bash
-cd web
-npm run dev
-```
-
-Visit `http://localhost:3000` and connect your wallet!
-
-## 📝 Smart Contract
-
-### PandaNFT.sol Features
-
-- **ERC721 Compliance**: Standard NFT implementation
-- **ERC721Enumerable**: Query all tokens owned by an address
-- **ERC721URIStorage**: Store metadata URIs
-- **Public Minting**: No access control for creating Pandas
-- **Cosmetic System**:
-  - Admin creates cosmetic templates
-  - Users can equip/unequip cosmetics
-  - Slot-based (category) system
-  - No individual cosmetic ownership (shared templates)
-
-### Key Functions
-
-```solidity
-// Mint a new Panda (anyone can call)
-function mint(string memory tokenURI) external
-
-// Create cosmetic template (admin only)
-function createCosmetic(
-    string memory category,
-    string memory name,
-    string memory description,
-    string memory rarity
-) external onlyOwner
-
-// Equip cosmetic to Panda
-function equipCosmetic(uint256 pandaId, uint256 cosmeticId) external
-
-// Unequip cosmetic from Panda
-function unequipCosmetic(uint256 pandaId, string memory category) external
-```
-
-## 🎨 How Cosmetics Work
-
-Unlike traditional NFT games, cosmetics in Panda are **shared templates**:
-
-1. **Admin** creates cosmetic templates (once)
-2. **All users** can equip any cosmetic to their Panda
-3. **No minting** required for individual cosmetics
-4. **Gas-efficient**: Only updates mapping, no NFT transfers
-
-### Benefits:
-- ✅ Lower gas costs for users
-- ✅ No need to buy/mint cosmetics
-- ✅ Instant access to all cosmetics
-- ✅ Simple on-chain logic
-
-## 🔧 Tech Stack
-
-### Frontend
-- **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS 4
-- **Blockchain**: ethers.js v5
-- **Animation**: Framer Motion
-- **State**: React Hooks + localStorage persistence
-- **UI**: Lucide React icons
-- **Notifications**: Sonner
-
-### Smart Contracts
-- **Language**: Solidity ^0.8.20
-- **Standard**: OpenZeppelin ERC721
-- **Chain**: Base (EVM-compatible)
-
-## 📦 Deployment
-
-### 1. Deploy Smart Contract
-
-#### Using Remix IDE (Easiest)
-1. Open https://remix.ethereum.org
-2. Create new file `PandaNFT.sol`
-3. Copy code from `contracts/base/PandaNFT.sol`
-4. Compile with Solidity 0.8.20
-5. Connect MetaMask to Base Sepolia
-6. Deploy contract
-7. Copy deployed address
-
-#### Using Hardhat
-```bash
-cd contracts/base
-npm init -y
-npm install --save-dev hardhat @openzeppelin/contracts
-npx hardhat init
-
-# Create deploy script and run:
-npx hardhat run scripts/deploy.js --network baseSepolia
-```
-
-### 2. Update Environment
-
-```bash
-# In web/.env.local
-NEXT_PUBLIC_PANDA_NFT_ADDRESS=0x... # Your deployed address
-```
-
-### 3. Create Initial Cosmetics (Admin)
-
-As contract owner, create some cosmetics using Remix or Hardhat:
-
-```javascript
-await panda.createCosmetic("hat", "Top Hat", "Classic top hat", "rare");
-await panda.createCosmetic("hat", "Party Hat", "Festive hat", "common");
-await panda.createCosmetic("hat", "Crown", "Royal crown", "legendary");
-await panda.createCosmetic("hat", "Santa Hat", "Holiday spirit", "rare");
-await panda.createCosmetic("glasses", "Sunglasses", "Cool shades", "common");
-await panda.createCosmetic("glasses", "Monocle", "Classy monocle", "rare");
-await panda.createCosmetic("shirt", "T-Shirt", "Casual tee", "common");
-await panda.createCosmetic("shirt", "Tuxedo", "Fancy suit", "rare");
-await panda.createCosmetic("accessory", "Bow Tie", "Dapper bow tie", "common");
-await panda.createCosmetic("accessory", "Necklace", "Golden necklace", "rare");
-```
-
-### 4. Deploy Frontend
-
-```bash
-cd web
-npm run build
-npm run start
-
-# Or deploy to Vercel
-vercel deploy
-```
-
-## 🎯 Game Mechanics
-
-### Stats Decay
-- **Hunger**: Decreases over time (faster when awake)
-- **Energy**: Decreases when awake, increases when sleeping
-- **Fun**: Decreases slowly over time
-- **Hygiene**: Decreases slowly over time
-- **Health**: Decreases when hunger reaches 0
-
-### Earning XP
-- Feed: +10 XP
-- Play minigames: +20 XP
-- Wash: +10 XP
-- Pet: +1 XP (occasional)
-
-### Missions
-Complete daily missions to earn coins:
-- Feed your Panda 5 times (+50 coins)
-- Pet your Panda 20 times (+30 coins)
-- Wash your Panda 3 times (+40 coins)
-- Play with Panda 5 times (+60 coins)
-- Reach Level 2 (+100 coins)
-
-## 🌐 Base Network
-
-### Testnet (Development)
-- **Network**: Base Sepolia
-- **Chain ID**: 84532
-- **RPC**: https://sepolia.base.org
-- **Faucet**: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
-- **Explorer**: https://sepolia.basescan.org
-
-### Mainnet (Production)
-- **Network**: Base
-- **Chain ID**: 8453
-- **RPC**: https://mainnet.base.org
-- **Explorer**: https://basescan.org
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-MIT License
-
-## 🔗 Links
-
-- [Base Documentation](https://docs.base.org)
-- [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts)
-- [ethers.js Documentation](https://docs.ethers.org/v5/)
-- [Next.js Documentation](https://nextjs.org/docs)
-
-## 💡 Tips
-
-### For Players
-- Keep all stats above 50% for best health
-- Play minigames to earn coins and XP quickly
-- Complete missions for bonus coins
-- Put your Panda to sleep when energy is low
-
-### For Developers
-- Contract uses standard OpenZeppelin implementations
-- All cosmetics are stored on-chain as mappings
-- Frontend uses ethers.js v5 for blockchain interactions
-- Type safety with TypeScript throughout
+🔗 **Live Demo:** `[VERCEL_URL]`
 
 ---
 
-**Built with ❤️ on Base**
+## ✨ Features
+
+| # | Feature | Description |
+|---|---------|-------------|
+| 1 | **Panda NFT** | Mint, name, and care for your own panda (ERC721) |
+| 2 | **IDRX Token Economy** | MockIDRX faucet, marketplace purchases, daily rewards |
+| 3 | **5 Minigames** | Ball Shooter, Bamboo Catcher, Dino Jump, Memory Match, Bamboo Slice |
+| 4 | **Onchain Leaderboard** | Scores submitted and ranked onchain in real-time |
+| 5 | **Soulbound Badges** | 8 non-transferable achievement badges (ERC721 SBT) |
+| 6 | **Panda Evolution** | 5 visual evolution stages based on level |
+| 7 | **BaseName Integration** | `.base.eth` names displayed in-game |
+| 8 | **Social System** | Add friends, visit pandas, send gifts |
+| 9 | **NFT Cosmetics** | Equip/unequip cosmetic items on your panda |
+| 10 | **Care System** | Feed, wash, sleep, play — stats decay over time |
+| 11 | **Daily Missions** | Complete missions for coin rewards |
+| 12 | **Network Guard** | Auto-prompts to switch to Base Sepolia + faucet links |
+| 13 | **Interactive Tutorial** | Step-by-step onboarding for new players |
+
+---
+
+## 🧪 How to Test (for Judges)
+
+1. Visit the **[Live Demo](`[VERCEL_URL]`)**
+2. Connect **MetaMask** or **Coinbase Wallet**
+3. Switch to **Base Sepolia** when prompted (auto-detected)
+4. Need testnet ETH? → [Base Faucet](https://www.coinbase.com/faucets/base-ethereum-goerli-faucet) | [Alchemy Faucet](https://www.alchemy.com/faucets/base-sepolia)
+5. **Create your Panda** — give it a name!
+6. Explore: feed it, play minigames, claim IDRX from the in-app faucet
+7. Check the leaderboard, earn achievement badges, add friends
+
+---
+
+## 🔧 Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 16, React 19, Tailwind CSS 4, ethers.js v5 |
+| Smart Contracts | Solidity 0.8.20, Hardhat, OpenZeppelin |
+| Blockchain | Base Sepolia Testnet |
+| Token | IDRX (Indonesian Rupiah Token) — MockIDRX for testing |
+
+---
+
+## 📜 Smart Contracts (Base Sepolia)
+
+| Contract | Address |
+|----------|---------|
+| MockIDRX (ERC20) | [`0x929d97519f8ae159111dB4CfEe4dE98D00505ea2`](https://sepolia.basescan.org/address/0x929d97519f8ae159111dB4CfEe4dE98D00505ea2) |
+| PandaMarketplace | [`0x4CE95c95cdB37D116C28A12AFFCb16Bf0523a041`](https://sepolia.basescan.org/address/0x4CE95c95cdB37D116C28A12AFFCb16Bf0523a041) |
+| PandaLeaderboard | [`0x7705a10EA6e14D184D229A3d2a3A317C8DFD2364`](https://sepolia.basescan.org/address/0x7705a10EA6e14D184D229A3d2a3A317C8DFD2364) |
+| PandaAchievements (SBT) | [`0x0a8D4d1FB5B768A78f1f9142393C8c9dD3eEf2a0`](https://sepolia.basescan.org/address/0x0a8D4d1FB5B768A78f1f9142393C8c9dD3eEf2a0) |
+| PandaSocial | [`0xd89C24e031d08E07B6d48e3083815c0aF9749067`](https://sepolia.basescan.org/address/0xd89C24e031d08E07B6d48e3083815c0aF9749067) |
+
+Plus **PandaNFT** and **PandaCosmetic** contracts (7 contracts total).
+
+---
+
+## 🔗 Base Ecosystem Integration
+
+- **Built on Base Sepolia** — all game state lives onchain
+- **IDRX token integration** — Indonesian Rupiah stablecoin (MockIDRX for testnet)
+- **BaseName resolution** — `.base.eth` reverse lookup displayed in-game
+- **ERC721 standard** — Panda NFTs compatible with any NFT marketplace
+- **Soulbound tokens** — Non-transferable achievement badges (ERC721 SBT)
+- **7 smart contracts** — NFTs, cosmetics, token, marketplace, leaderboard, achievements, social
+
+---
+
+## 🏛️ Architecture
+
+```
+┌──────────────────────────────────┐
+│        Next.js 16 Frontend       │
+│    React 19 + Tailwind CSS 4     │
+├──────────────────────────────────┤
+│    Custom Hooks per Contract     │
+│  Read:  JsonRpcProvider (public) │
+│  Write: Web3Provider + signer   │
+│  ENS override for Base Sepolia   │
+├──────────────────────────────────┤
+│       Base Sepolia Testnet       │
+│  PandaNFT · PandaCosmetic       │
+│  MockIDRX · PandaMarketplace    │
+│  PandaLeaderboard               │
+│  PandaAchievements (SBT)        │
+│  PandaSocial                    │
+└──────────────────────────────────┘
+```
+
+---
+
+## 🛠️ Local Development
+
+**Frontend:**
+```bash
+cd web && npm install && npm run dev
+```
+
+**Smart Contracts:**
+```bash
+cd contracts/base && npm install && npx hardhat compile
+```
+
+---
+
+**Built with ❤️ on Base for the Base Indonesia Hackathon**
