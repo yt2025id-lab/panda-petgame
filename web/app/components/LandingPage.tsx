@@ -49,7 +49,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onPlayNow }) => {
           {[
             { emoji: "🎮", title: "Minigames", desc: "Ball Shooter, Bamboo Catcher & more" },
             { emoji: "🍕", title: "Feed & Care", desc: "Keep your panda happy and healthy" },
-            { emoji: "💰", title: "IDRX Economy", desc: "Earn & spend IDRX tokens" },
+            { emoji: "💰", title: "IDRX Economy", desc: "Claim IDRX & convert to Coins" },
             { emoji: "🏆", title: "Leaderboard", desc: "Compete with other players" },
           ].map((feature) => (
             <div

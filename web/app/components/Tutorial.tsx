@@ -27,9 +27,9 @@ const steps = [
   },
   {
     emoji: "💎",
-    title: "IDRX & Leaderboard",
+    title: "IDRX & Coins",
     description:
-      "Claim free IDRX tokens from the faucet. Your game scores go onchain to the leaderboard!",
+      "Claim free IDRX tokens from the faucet, then convert them to Coins (1,000 IDRX = 1 Coin). Use Coins to buy food and items!",
   },
   {
     emoji: "✨",
