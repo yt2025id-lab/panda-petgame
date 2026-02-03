@@ -1,109 +1,51 @@
 "use client"
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2 } from 'lucide-react';
-// EVM Hooks
+// Hooks
+import useWallet from './hooks/useWallet';
+import useGameState from './hooks/useGameState';
 import useQueryPandasEvm from './hooks/evm/useQueryPandasEvm';
 import useQueryCosmeticsEvm from './hooks/evm/useQueryCosmeticsEvm';
 import useEquipCosmeticEvm from './hooks/evm/useEquipCosmeticEvm';
 import useUnequipCosmeticEvm from './hooks/evm/useUnequipCosmeticEvm';
-// Components & Utils
-import { PetStats, FoodItem, GameMessage, MissionStatus, ToyItem } from './components/type';
-import { INITIAL_STATS, DECAY_RATES, FOOD_ITEMS, MISSIONS, getPandaDialogue } from './components/constant';
-import StatBar from './components/StatBar';
+import useIDRXBalance from './hooks/evm/useIDRXBalance';
+import useIDRXFaucet from './hooks/evm/useIDRXFaucet';
+import useLeaderboard from './hooks/evm/useLeaderboard';
+import useAchievements from './hooks/evm/useAchievements';
+import useBaseName from './hooks/evm/useBaseName';
+// Components
+import { FoodItem, ToyItem } from './components/type';
+import { FOOD_ITEMS } from './components/constant';
+import LandingPage from './components/LandingPage';
+import ConnectWallet from './components/ConnectWallet';
+import GameHeader from './components/GameHeader';
+import BottomNav, { MenuType } from './components/BottomNav';
+import ProfileModal from './components/ProfileModal';
+import LeaderboardModal from './components/LeaderboardModal';
+import AchievementsModal from './components/AchievementsModal';
+import IDRXWallet from './components/IDRXWallet';
+import SocialModal from './components/SocialModal';
 import Panda from './components/Panda';
 import CreatePandaInitializer from './components/CreatePandaInitializer';
 import CreateCosmeticInitializer from './components/CreateCosmeticInitializer';
 import BallShooter from './components/minigames/BallShooter';
 import BambooCatcher from './components/minigames/BambooCatcher';
 import DinoJump from './components/minigames/DinoJump';
+import MemoryMatch from './components/minigames/MemoryMatch';
+import BambooSlice from './components/minigames/BambooSlice';
 
-const BASE_SEPOLIA_CHAIN_ID = '0x14a34'; // 84532 in hex
+type MinigameType = 'NONE' | 'BALLSHOOTER' | 'BAMBOOCATCHER' | 'DINOJUMP' | 'MEMORYMATCH' | 'BAMBOOSLICE';
 
 const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState(true);
-  const [evmAccount, setEvmAccount] = useState<string | undefined>(undefined);
-  const [isConnecting, setIsConnecting] = useState(false);
-
-  // Connect wallet via window.ethereum
-  const connectWallet = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      alert('Please install a wallet (MetaMask or Coinbase Wallet) to continue.');
-      return;
-    }
-    setIsConnecting(true);
-    try {
-      // Request account access
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[];
-
-      // Switch to Base Sepolia
-      try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: BASE_SEPOLIA_CHAIN_ID }],
-        });
-      } catch (switchError: any) {
-        // Chain not added yet, add it
-        if (switchError.code === 4902) {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: BASE_SEPOLIA_CHAIN_ID,
-              chainName: 'Base Sepolia',
-              nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-              rpcUrls: ['https://sepolia.base.org'],
-              blockExplorerUrls: ['https://sepolia.basescan.org'],
-            }],
-          });
-        }
-      }
-
-      if (accounts && accounts.length > 0) {
-        setEvmAccount(accounts[0]);
-      }
-    } catch (e: any) {
-      console.error('Failed to connect wallet:', e);
-    }
-    setIsConnecting(false);
-  }, []);
-
-  // Auto-connect if already connected
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.ethereum) return;
-    const eth = window.ethereum;
-    (async () => {
-      try {
-        const accounts = await eth.request({ method: 'eth_accounts' }) as string[];
-        if (accounts && accounts.length > 0) {
-          setEvmAccount(accounts[0]);
-        }
-      } catch {}
-    })();
-
-    // Listen for account changes
-    const handleAccountsChanged = (accounts: string[]) => {
-      if (accounts.length > 0) {
-        setEvmAccount(accounts[0]);
-      } else {
-        setEvmAccount(undefined);
-      }
-    };
-    eth.on?.('accountsChanged', handleAccountsChanged);
-    return () => {
-      eth.removeListener?.('accountsChanged', handleAccountsChanged);
-    };
-  }, []);
-
-  // Disconnect
-  const disconnect = useCallback(() => {
-    setEvmAccount(undefined);
-  }, []);
+  const { evmAccount, isConnecting, connectWallet, disconnect } = useWallet();
+  const gameState = useGameState();
 
   // Blockchain state
   const [hasCreatedPanda, setHasCreatedPanda] = useState(false);
   const [pandaName, setPandaName] = useState<string | null>(null);
   const [showCosmeticMinter, setShowCosmeticMinter] = useState(false);
 
-  // Use simplified EVM hooks
+  // EVM hooks
   const { pandas: ownedPandas, isLoading: isLoadingPandas } = useQueryPandasEvm(evmAccount);
   const { cosmetics: ownedCosmetics } = useQueryCosmeticsEvm(evmAccount);
   const { equipCosmetic } = useEquipCosmeticEvm();
@@ -111,46 +53,22 @@ const App: React.FC = () => {
   const [isEquipping, setIsEquipping] = useState(false);
   const [isUnequipping, setIsUnequipping] = useState(false);
 
-  // Load saved game state from localStorage
-  const loadSavedState = <T,>(key: string, fallback: T): T => {
-    if (typeof window === 'undefined') return fallback;
-    try {
-      const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : fallback;
-    } catch { return fallback; }
-  };
+  // New feature hooks
+  const { balance: idrxBalance, canClaim: canClaimFaucet, refetch: refetchIDRX } = useIDRXBalance(evmAccount);
+  const { claimFaucet, isClaiming: isClaimingFaucet } = useIDRXFaucet();
+  const { topPlayers, playerStats, isLoading: isLoadingLeaderboard, submitScore } = useLeaderboard(evmAccount);
+  const { achievements, isLoading: isLoadingAchievements, isClaiming: isClaimingAchievement, claimAchievement } = useAchievements(evmAccount);
+  const { baseName } = useBaseName(evmAccount);
 
-  // Game state
-  const [stats, setStats] = useState<PetStats>(() => loadSavedState('panda_stats', INITIAL_STATS));
-  const [coins, setCoins] = useState(() => loadSavedState('panda_coins', 100));
-  const [username] = useState("PandaKeeper");
-  const [isSleeping, setIsSleeping] = useState(false);
-  const [isEating, setIsEating] = useState(false);
-  const [isWashing, setIsWashing] = useState(false);
-  const [messages, setMessages] = useState<GameMessage[]>([]);
-  const [isThinking, setIsThinking] = useState(false);
+  // UI state
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [draggedFood, setDraggedFood] = useState<FoodItem | null>(null);
   const [draggedToy, setDraggedToy] = useState<ToyItem | null>(null);
-  const [activeMenu, setActiveMenu] = useState<'NONE' | 'KITCHEN' | 'PLAY' | 'COINS' | 'COSMETIC'>('NONE');
+  const [activeMenu, setActiveMenu] = useState<MenuType>('NONE');
   const [equippedCosmeticId, setEquippedCosmeticId] = useState<string | null>(null);
-  const [missionStatuses, setMissionStatuses] = useState<MissionStatus[]>(() =>
-    loadSavedState('panda_missions', MISSIONS.map(m => ({ missionId: m.id, progress: 0, claimed: false })))
-  );
-  const [activeMinigame, setActiveMinigame] = useState<'NONE' | 'BALLSHOOTER' | 'BAMBOOCATCHER' | 'DINOJUMP'>('NONE');
+  const [activeMinigame, setActiveMinigame] = useState<MinigameType>('NONE');
 
-  // Save game state to localStorage
-  useEffect(() => {
-    localStorage.setItem('panda_stats', JSON.stringify(stats));
-  }, [stats]);
-  useEffect(() => {
-    localStorage.setItem('panda_coins', JSON.stringify(coins));
-  }, [coins]);
-  useEffect(() => {
-    localStorage.setItem('panda_missions', JSON.stringify(missionStatuses));
-  }, [missionStatuses]);
-
-  // Check if user has created a Panda on blockchain
+  // Check if user has created a Panda
   useEffect(() => {
     if (!isLoadingPandas && ownedPandas.length > 0) {
       setHasCreatedPanda(true);
@@ -160,157 +78,23 @@ const App: React.FC = () => {
     }
   }, [ownedPandas, isLoadingPandas, pandaName]);
 
-  const handlePandaTalk = useCallback(async (customMessage?: string) => {
-    if (isThinking || isSleeping) return;
-    setIsThinking(true);
-    const reply = await getPandaDialogue(stats, customMessage);
-    setMessages([{ text: reply, sender: 'panda' }]);
-    setIsThinking(false);
-    setTimeout(() => setMessages([]), 5000);
-  }, [isThinking, isSleeping, stats]);
-
-  const updateMissionProgress = useCallback((type: string, value: number = 1, isAbsolute: boolean = false) => {
-    setMissionStatuses(prev => prev.map(status => {
-      const mission = MISSIONS.find(m => m.id === status.missionId);
-      if (mission && mission.type === type && !status.claimed) {
-        const newProgress = isAbsolute ? value : status.progress + value;
-        return { ...status, progress: Math.min(mission.requirement, newProgress) };
-      }
-      return status;
-    }));
-  }, []);
-
   // Follow cursor
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
+    const handleMouseMove = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY });
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Leveling logic
-  useEffect(() => {
-    if (stats.xp >= 100) {
-      setStats(prev => ({
-        ...prev,
-        xp: prev.xp - 100,
-        level: prev.level + 1
-      }));
-      updateMissionProgress('level', stats.level + 1, true);
-      handlePandaTalk(`Level Up! I'm now level ${stats.level + 1}! ✨`);
-    }
-  }, [stats.xp, stats.level, updateMissionProgress, handlePandaTalk]);
-
-  // Game Loop
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStats(prev => ({
-        ...prev,
-        hunger: Math.max(0, prev.hunger - (isSleeping ? DECAY_RATES.hunger / 2 : DECAY_RATES.hunger)),
-        energy: isSleeping
-          ? Math.min(100, prev.energy + 0.5)
-          : Math.max(0, prev.energy - DECAY_RATES.energy),
-        fun: Math.max(0, prev.fun - DECAY_RATES.fun),
-        hygiene: Math.max(0, prev.hygiene - DECAY_RATES.hygiene),
-        health: Math.max(0, prev.health - (prev.hunger === 0 ? 0.2 : 0)),
-      }));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isSleeping]);
-
-  const addXP = (amount: number) => {
-    setStats(prev => ({ ...prev, xp: prev.xp + amount }));
-  };
-
-  const feedPet = (food: FoodItem) => {
-    if (coins < food.cost || isSleeping) return;
-    setCoins(prev => prev - food.cost);
-    setIsEating(true);
-    setStats(prev => ({
-      ...prev,
-      hunger: Math.min(100, prev.hunger + food.nutrition),
-      hygiene: Math.max(0, prev.hygiene - 2)
-    }));
-    addXP(10);
-    updateMissionProgress('feed');
-    setTimeout(() => setIsEating(false), 2000);
-  };
-
-  const playWithToy = (toy: ToyItem) => {
-    if (stats.energy < toy.energyCost || isSleeping) return;
-    setStats(prev => ({
-      ...prev,
-      fun: Math.min(100, prev.fun + toy.funValue),
-      energy: Math.max(0, prev.energy - toy.energyCost)
-    }));
-    addXP(20);
-    updateMissionProgress('play');
-    if (Math.random() < 0.3) {
-      handlePandaTalk(`Wheee! Playing with my ${toy.name}! ${toy.emoji}`);
-    }
-  };
-
-  const claimMission = (missionId: string) => {
-    const status = missionStatuses.find(s => s.missionId === missionId);
-    const mission = MISSIONS.find(m => m.id === missionId);
-    if (status && mission && status.progress >= mission.requirement && !status.claimed) {
-      setCoins(prev => prev + mission.reward);
-      setMissionStatuses(prev => prev.map(s => s.missionId === missionId ? { ...s, claimed: true } : s));
-      handlePandaTalk(`Yay! Earned ${mission.reward} coins! 💰`);
-    }
-  };
-
-  const handlePetting = useCallback(() => {
-    if (isSleeping) return;
-    setStats(prev => ({ ...prev, fun: Math.min(100, prev.fun + 0.5) }));
-    updateMissionProgress('pet', 0.1);
-    if (Math.random() < 0.01) {
-      handlePandaTalk("is being petted and happy");
-      addXP(1);
-    }
-  }, [isSleeping, updateMissionProgress, handlePandaTalk]);
-
-  const washPet = () => {
-    if (isSleeping) return;
-    setIsWashing(true);
-    setActiveMenu('NONE');
-    setStats(prev => ({ ...prev, hygiene: Math.min(100, prev.hygiene + 20) }));
-    addXP(10);
-    updateMissionProgress('wash');
-    setTimeout(() => setIsWashing(false), 2000);
-  };
-
-  const toggleSleep = () => {
-    const newSleepState = !isSleeping;
-    setIsSleeping(newSleepState);
-    if (newSleepState) {
-      setMessages([]);
-      setActiveMenu('NONE');
-    } else {
-      handlePandaTalk("just woke up");
-    }
-  };
-
-  const handleDropItem = () => {
-    if (draggedFood) feedPet(draggedFood);
-    else if (draggedToy) playWithToy(draggedToy);
-  };
-
   const handleEquipCosmetic = useCallback(async (cosmeticId: string) => {
     if (!ownedPandas || ownedPandas.length === 0) {
-      handlePandaTalk("You need a panda first!");
+      gameState.handlePandaTalk("You need a panda first!");
       return;
     }
 
     if (equippedCosmeticId === cosmeticId) {
       try {
         const cosmeticToRemove = ownedCosmetics.find(c => c.objectId === cosmeticId);
-        if (!cosmeticToRemove || !evmAccount) {
-          handlePandaTalk("Cannot unequip!");
-          return;
-        }
+        if (!cosmeticToRemove || !evmAccount) return;
         setIsUnequipping(true);
         await unequipCosmetic({
           pandaId: ownedPandas[0].objectId,
@@ -318,11 +102,10 @@ const App: React.FC = () => {
           recipient: evmAccount,
         });
         setEquippedCosmeticId(null);
-        handlePandaTalk("I took off my cosmetic.");
+        gameState.handlePandaTalk("I took off my cosmetic.");
         setIsUnequipping(false);
       } catch (error) {
         console.error("Error unequipping cosmetic:", error);
-        handlePandaTalk("Oh no! Failed to remove cosmetic.");
         setIsUnequipping(false);
       }
       return;
@@ -330,139 +113,59 @@ const App: React.FC = () => {
 
     try {
       setIsEquipping(true);
-      await equipCosmetic({
-        pandaId: ownedPandas[0].objectId,
-        cosmeticId: cosmeticId,
-      });
+      await equipCosmetic({ pandaId: ownedPandas[0].objectId, cosmeticId });
       setEquippedCosmeticId(cosmeticId);
-      handlePandaTalk("I love my new cosmetic! ✨");
+      gameState.handlePandaTalk("I love my new cosmetic! ✨");
       setIsEquipping(false);
     } catch (error) {
       console.error("Error equipping cosmetic:", error);
-      handlePandaTalk("Oh no! Failed to equip cosmetic.");
       setIsEquipping(false);
     }
-  }, [equippedCosmeticId, ownedPandas, ownedCosmetics, evmAccount, equipCosmetic, unequipCosmetic, handlePandaTalk]);
+  }, [equippedCosmeticId, ownedPandas, ownedCosmetics, evmAccount, equipCosmetic, unequipCosmetic, gameState]);
 
-  const handleMinigameEnd = (score: number, xpEarned: number, coinsEarned: number) => {
-    addXP(xpEarned);
-    setCoins(prev => prev + coinsEarned);
+  const handleMinigameEnd = useCallback((score: number, xpEarned: number, coinsEarned: number) => {
+    gameState.addXP(xpEarned);
+    gameState.setCoins(prev => prev + coinsEarned);
     setActiveMinigame('NONE');
-    handlePandaTalk(`Awesome game! Earned ${xpEarned} XP and ${coinsEarned} coins! 🎉`);
-    updateMissionProgress('play', score);
+    gameState.handlePandaTalk(`Awesome game! Earned ${xpEarned} XP and ${coinsEarned} coins! 🎉`);
+    gameState.updateMissionProgress('play', score);
+    // Submit score to leaderboard
+    if (score > 0) {
+      submitScore(score);
+    }
+  }, [gameState, submitScore]);
+
+  const handleClaimFaucet = useCallback(async () => {
+    try {
+      await claimFaucet();
+      refetchIDRX();
+      gameState.handlePandaTalk("Got 10,000 IDRX from the faucet! 💎");
+    } catch (error) {
+      console.error("Faucet error:", error);
+      gameState.handlePandaTalk("Failed to claim IDRX...");
+    }
+  }, [claimFaucet, refetchIDRX, gameState]);
+
+  const handleClaimAchievement = useCallback(async (achievementId: number) => {
+    try {
+      await claimAchievement(achievementId);
+      gameState.handlePandaTalk("Achievement unlocked! 🏅");
+    } catch (error) {
+      console.error("Achievement error:", error);
+      gameState.handlePandaTalk("Failed to claim achievement...");
+    }
+  }, [claimAchievement, gameState]);
+
+  const handleDropItem = () => {
+    if (draggedFood) gameState.feedPet(draggedFood);
+    else if (draggedToy) gameState.playWithToy(draggedToy);
   };
 
   // ==========================================
   // LANDING PAGE
   // ==========================================
   if (showLanding && !evmAccount) {
-    return (
-      <div className="fixed inset-0 bg-gradient-to-b from-[#1a0533] via-[#2d1b69] to-[#0f0c29] flex flex-col overflow-auto">
-        {/* Floating panda emojis background */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {["top-10 left-10", "top-20 right-16", "bottom-32 left-20", "bottom-16 right-10", "top-1/2 left-5", "top-1/3 right-8", "top-[15%] left-[40%]", "bottom-[25%] right-[30%]"].map(
-            (pos, i) => (
-              <div
-                key={i}
-                className={`absolute ${pos} text-5xl opacity-10 animate-bounce`}
-                style={{ animationDelay: `${i * 0.4}s`, animationDuration: `${3 + i * 0.5}s` }}
-              >
-                🐼
-              </div>
-            )
-          )}
-        </div>
-
-        {/* Hero Section */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 relative z-10">
-          <div className="text-center space-y-6 max-w-lg">
-            <div className="inline-flex items-center justify-center w-36 h-36 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full border-8 border-white/20 shadow-[0_0_60px_rgba(168,85,247,0.4)]">
-              <span className="text-8xl">🐼</span>
-            </div>
-
-            <div className="space-y-3">
-              <h1 className="text-5xl font-black text-white tracking-tight">
-                Panda Pet Game
-              </h1>
-              <p className="text-xl text-purple-200 font-medium">
-                Adopt, Feed, Play & Earn on Base Blockchain
-              </p>
-            </div>
-
-            <p className="text-purple-300/80 text-base leading-relaxed max-w-sm mx-auto">
-              Your own virtual panda NFT! Take care of your panda, play minigames, complete missions, and customize with cosmetics.
-            </p>
-          </div>
-
-          {/* Feature Cards */}
-          <div className="grid grid-cols-2 gap-4 mt-10 max-w-md w-full px-4">
-            {[
-              { emoji: "🎮", title: "Minigames", desc: "Ball Shooter, Bamboo Catcher, Dino Jump" },
-              { emoji: "🍕", title: "Feed & Care", desc: "Keep your panda happy and healthy" },
-              { emoji: "✨", title: "NFT Cosmetics", desc: "Mint and equip unique items" },
-              { emoji: "🏆", title: "Daily Missions", desc: "Complete tasks and earn coins" },
-            ].map((feature) => (
-              <div
-                key={feature.title}
-                className="bg-white/10 backdrop-blur-sm border-2 border-white/10 rounded-2xl p-4 text-center hover:bg-white/15 transition-colors"
-              >
-                <div className="text-3xl mb-2">{feature.emoji}</div>
-                <h3 className="text-white font-bold text-sm">{feature.title}</h3>
-                <p className="text-purple-300/70 text-xs mt-1">{feature.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* CTA Button */}
-          <div className="mt-10 w-full max-w-md px-4 space-y-4">
-            <button
-              onClick={() => setShowLanding(false)}
-              className="w-full h-16 text-2xl font-black bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-gray-900 rounded-2xl border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 active:translate-y-0 active:shadow-[2px_2px_0px_#2d2d2d] transition-all flex items-center justify-center gap-3"
-            >
-              🎮 Play Now
-            </button>
-
-            <div className="flex items-center justify-center gap-4 text-purple-400/60 text-xs font-medium">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-green-400 rounded-full" />
-                Base Sepolia
-              </span>
-              <span>|</span>
-              <span>Free to Play</span>
-              <span>|</span>
-              <span>Own Your NFT</span>
-            </div>
-          </div>
-
-          {/* How it works */}
-          <div className="mt-12 max-w-md w-full px-4">
-            <h2 className="text-center text-white/60 text-xs font-bold uppercase tracking-widest mb-4">How It Works</h2>
-            <div className="flex items-center justify-between gap-2">
-              {[
-                { step: "1", label: "Connect Wallet" },
-                { step: "2", label: "Create Panda NFT" },
-                { step: "3", label: "Play & Earn" },
-              ].map((s, i) => (
-                <React.Fragment key={s.step}>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-purple-500/30 border-2 border-purple-400/40 flex items-center justify-center text-white font-black text-sm">
-                      {s.step}
-                    </div>
-                    <span className="text-purple-300/70 text-xs font-medium text-center">{s.label}</span>
-                  </div>
-                  {i < 2 && <div className="flex-1 h-[2px] bg-purple-500/20 mb-6" />}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center py-6 text-purple-400/40 text-xs font-medium">
-          Panda Pet Game &middot; Built on Base &middot; Powered by NFTs
-        </div>
-      </div>
-    );
+    return <LandingPage onPlayNow={() => setShowLanding(false)} />;
   }
 
   // ==========================================
@@ -470,452 +173,276 @@ const App: React.FC = () => {
   // ==========================================
   if (!evmAccount) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-purple-200 via-pink-100 to-blue-200 flex items-center justify-center p-4">
-        {/* Floating panda emojis */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {["top-10 left-10", "top-20 right-16", "bottom-32 left-20", "bottom-16 right-10", "top-1/2 left-5", "top-1/3 right-8"].map(
-            (pos, i) => (
-              <div
-                key={i}
-                className={`absolute ${pos} text-6xl opacity-15 animate-bounce`}
-                style={{ animationDelay: `${i * 0.3}s`, animationDuration: `${2 + i * 0.5}s` }}
-              >
-                🐼
-              </div>
-            )
-          )}
-        </div>
-
-        <div className="bg-white rounded-[3rem] border-8 border-gray-800 shadow-[0_20px_0_#2d2d2d] p-10 max-w-md w-full space-y-8 text-center relative z-10">
-          <div className="space-y-4">
-            <div className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full border-8 border-gray-800 shadow-[4px_4px_0px_#2d2d2d]">
-              <span className="text-7xl">🐼</span>
-            </div>
-            <h1 className="text-4xl font-black text-gray-800 tracking-tight">
-              Panda Pet
-            </h1>
-            <p className="text-gray-500 font-medium text-lg">
-              Connect your wallet to start playing
-            </p>
-          </div>
-
-          <button
-            onClick={connectWallet}
-            disabled={isConnecting}
-            className="w-full h-14 text-xl font-black bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl border-4 border-gray-800 shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 active:translate-y-0 active:shadow-[2px_2px_0px_#2d2d2d] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-          >
-            {isConnecting ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <>
-                <span className="text-2xl">🔗</span>
-                Connect Wallet
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={() => setShowLanding(true)}
-            className="text-sm text-gray-400 hover:text-gray-600 font-medium transition-colors"
-          >
-            &larr; Back to home
-          </button>
-
-          <p className="text-xs text-gray-400 font-medium">
-            MetaMask &middot; Coinbase Wallet &middot; Base Sepolia
-          </p>
-        </div>
-      </div>
+      <ConnectWallet
+        isConnecting={isConnecting}
+        onConnect={connectWallet}
+        onBack={() => setShowLanding(true)}
+      />
     );
   }
 
   return (
     <>
-      <div className={`fixed inset-0 transition-colors duration-1000 ${isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
+      <div className={`fixed inset-0 transition-colors duration-1000 ${gameState.isSleeping ? 'bg-[#0f0c29]' : 'bg-[#e0f7fa]'} flex flex-col overflow-hidden select-none`}>
 
-      {/* Cosmetic Minter Modal */}
-      {showCosmeticMinter && (
-        <CreateCosmeticInitializer
-          onSuccess={() => {
-            setShowCosmeticMinter(false);
-          }}
-          coins={coins}
-          onSpendCoins={(amount) => setCoins(prev => Math.max(0, prev - amount))}
-        />
-      )}
+        {/* Cosmetic Minter Modal */}
+        {showCosmeticMinter && (
+          <CreateCosmeticInitializer
+            onSuccess={() => setShowCosmeticMinter(false)}
+            coins={gameState.coins}
+            onSpendCoins={(amount) => gameState.setCoins(prev => Math.max(0, prev - amount))}
+          />
+        )}
 
-      {/* Minigame Modals */}
-      {activeMinigame === 'BALLSHOOTER' && (
-        <BallShooter
-          onClose={() => setActiveMinigame('NONE')}
-          onGameEnd={handleMinigameEnd}
-        />
-      )}
-      {activeMinigame === 'BAMBOOCATCHER' && (
-        <BambooCatcher
-          onClose={() => setActiveMinigame('NONE')}
-          onGameEnd={handleMinigameEnd}
-        />
-      )}
-      {activeMinigame === 'DINOJUMP' && (
-        <DinoJump
-          onClose={() => setActiveMinigame('NONE')}
-          onGameEnd={handleMinigameEnd}
-        />
-      )}
+        {/* Minigame Modals */}
+        {activeMinigame === 'BALLSHOOTER' && (
+          <BallShooter onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+        )}
+        {activeMinigame === 'BAMBOOCATCHER' && (
+          <BambooCatcher onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+        )}
+        {activeMinigame === 'DINOJUMP' && (
+          <DinoJump onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+        )}
+        {activeMinigame === 'MEMORYMATCH' && (
+          <MemoryMatch onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+        )}
+        {activeMinigame === 'BAMBOOSLICE' && (
+          <BambooSlice onClose={() => setActiveMinigame('NONE')} onGameEnd={handleMinigameEnd} />
+        )}
 
-      {/* Panda Initialization Screen */}
-      {!hasCreatedPanda && !isLoadingPandas && (
-        <CreatePandaInitializer
-          onSuccess={() => {
-            setHasCreatedPanda(true);
-          }}
-          evmAccount={evmAccount}
-        />
-      )}
+        {/* Panda Initialization Screen */}
+        {!hasCreatedPanda && !isLoadingPandas && (
+          <CreatePandaInitializer onSuccess={() => setHasCreatedPanda(true)} evmAccount={evmAccount} />
+        )}
 
-      {/* Loading Screen */}
-      {isLoadingPandas && !hasCreatedPanda && (
-        <div className="fixed inset-0 bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center z-50">
-          <div className="text-center space-y-4">
-            <div className="text-6xl animate-bounce">🐼</div>
-            <p className="text-2xl font-bold text-gray-800">Loading your Panda...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Game Content - Only show if Panda exists */}
-      {hasCreatedPanda && (
-        <>
-          {/* Top Header */}
-          <div className="p-4 flex flex-col gap-2 bg-white/60 backdrop-blur-md border-b-4 border-gray-800 z-10">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-600 text-white font-game px-3 py-1 rounded-full border-4 border-gray-800 shadow-[2px_2px_0px_#2d2d2d]">
-                  LVL {stats.level}
-                </div>
-                <div className="w-32 bg-gray-200 rounded-full h-4 border-2 border-gray-800 overflow-hidden relative">
-                  <div className="h-full bg-blue-400 transition-all duration-500" style={{ width: `${stats.xp}%` }} />
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black uppercase text-gray-700">XP</span>
-                </div>
-              </div>
-              <div className="flex gap-2 items-center">
-                <div
-                  onClick={() => setActiveMenu(activeMenu === 'COINS' ? 'NONE' : 'COINS')}
-                  className="cursor-pointer bg-yellow-400 border-4 border-gray-800 rounded-full px-4 py-2 font-game text-xl shadow-[4px_4px_0px_#2d2d2d] hover:-translate-y-1 transition-transform flex items-center gap-2"
-                >
-                  💰 <span className="text-gray-900">{coins}</span>
-                </div>
-                {evmAccount && (
-                  <div className="bg-green-500 text-white font-bold px-3 py-2 rounded-lg border-4 border-gray-800 shadow-[2px_2px_0px_#2d2d2d] text-sm">
-                    {evmAccount.slice(0, 6)}...{evmAccount.slice(-4)}
-                  </div>
-                )}
-                <button
-                  onClick={disconnect}
-                  className="bg-red-400 text-white font-bold px-3 py-2 rounded-lg border-4 border-gray-800 shadow-[2px_2px_0px_#2d2d2d] hover:-translate-y-1 transition-transform text-sm"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-            <div className="flex justify-between gap-2 overflow-x-auto pb-1 no-scrollbar">
-              <StatBar label="Hunger" value={stats.hunger} icon="🍕" color="bg-orange-400" />
-              <StatBar label="Health" value={stats.health} icon="❤️" color="bg-red-500" />
-              <StatBar label="Fun" value={stats.fun} icon="⚽" color="bg-blue-400" />
-              <StatBar label="Energy" value={stats.energy} icon="⚡" color="bg-yellow-400" />
-              <StatBar label="Soap" value={stats.hygiene} icon="🧼" color="bg-teal-300" />
+        {/* Loading Screen */}
+        {isLoadingPandas && !hasCreatedPanda && (
+          <div className="fixed inset-0 bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center z-50">
+            <div className="text-center space-y-4">
+              <div className="text-6xl animate-bounce">🐼</div>
+              <p className="text-2xl font-bold text-gray-800">Loading your Panda...</p>
             </div>
           </div>
+        )}
 
-          {/* Main Game Area */}
-          <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
-            {messages.length > 0 && activeMenu === 'NONE' && (
-              <div className="absolute top-20 bg-white border-4 border-gray-800 p-4 rounded-3xl max-w-xs shadow-xl animate-in fade-in slide-in-from-bottom-4 z-20">
-                <p className="font-bold text-gray-800">{messages[0].text}</p>
-                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[20px] border-t-gray-800" />
+        {/* Game Content */}
+        {hasCreatedPanda && (
+          <>
+            <GameHeader
+              stats={gameState.stats}
+              coins={gameState.coins}
+              evmAccount={evmAccount}
+              idrxBalance={Number(idrxBalance) > 0 ? Number(idrxBalance).toLocaleString() : undefined}
+              baseName={baseName}
+              onCoinsClick={() => setActiveMenu(activeMenu === 'COINS' ? 'NONE' : 'COINS')}
+              onDisconnect={disconnect}
+            />
+
+            {/* Main Game Area */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
+              {gameState.messages.length > 0 && activeMenu === 'NONE' && (
+                <div className="absolute top-20 bg-white border-4 border-gray-800 p-4 rounded-3xl max-w-xs shadow-xl animate-in fade-in slide-in-from-bottom-4 z-20">
+                  <p className="font-bold text-gray-800">{gameState.messages[0].text}</p>
+                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[20px] border-t-gray-800" />
+                </div>
+              )}
+
+              <div className="transition-opacity">
+                <Panda
+                  stats={gameState.stats}
+                  isSleeping={gameState.isSleeping}
+                  isEating={gameState.isEating}
+                  isWashing={gameState.isWashing}
+                  mousePos={mousePos}
+                  equippedCosmeticId={equippedCosmeticId}
+                  equippedCosmetic={ownedCosmetics.find(c => c.objectId === equippedCosmeticId)}
+                  onClick={() => !gameState.isSleeping && gameState.handlePandaTalk("Ouch! That tickles!")}
+                  onPet={gameState.handlePetting}
+                  onDropItem={handleDropItem}
+                />
               </div>
-            )}
 
-            <div className={activeMenu !== 'NONE' ? ' transition-opacity' : 'transition-opacity'}>
-              <Panda
-                stats={stats}
-                isSleeping={isSleeping}
-                isEating={isEating}
-                isWashing={isWashing}
-                mousePos={mousePos}
-                equippedCosmeticId={equippedCosmeticId}
-                equippedCosmetic={ownedCosmetics.find(c => c.objectId === equippedCosmeticId)}
-                onClick={() => !isSleeping && handlePandaTalk("Ouch! That tickles!")}
-                onPet={handlePetting}
-                onDropItem={handleDropItem}
-              />
-            </div>
-
-            {/* Kitchen Tray Overlay */}
-            {activeMenu === 'KITCHEN' && !isSleeping && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-full duration-300 z-30 w-full max-w-sm px-4">
-                <div className="text-[10px] font-black bg-orange-500 text-white px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg mb-[-10px] z-10 border-2 border-white">
-                  Drag food to panda!
-                </div>
-                <div className="flex gap-4 p-5 bg-white border-8 border-gray-800 rounded-[2.5rem] shadow-[0_12px_0_#2d2d2d] overflow-x-auto w-full no-scrollbar">
-                  {FOOD_ITEMS.map(food => (
-                    <div
-                      key={food.id}
-                      draggable
-                      onDragStart={() => { setDraggedFood(food); setDraggedToy(null); }}
-                      onDragEnd={() => setDraggedFood(null)}
-                      onClick={() => feedPet(food)}
-                      className="flex-shrink-0 bg-orange-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-orange-100 transition-all cursor-grab active:cursor-grabbing hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
-                    >
-                      <div className="text-4xl">{food.emoji}</div>
-                      <div className="text-xs font-black mt-2 text-gray-800">${food.cost}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Play Menu - Minigames */}
-            {activeMenu === 'PLAY' && !isSleeping && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-full duration-300 z-30 w-full max-w-sm px-4">
-                <div className="text-[10px] font-black bg-blue-500 text-white px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg mb-[-10px] z-10 border-2 border-white">
-                  Choose a minigame!
-                </div>
-                <div className="flex gap-4 p-5 bg-white border-8 border-gray-800 rounded-[2.5rem] shadow-[0_12px_0_#2d2d2d] overflow-x-auto w-full no-scrollbar">
-                  <div
-                    onClick={() => setActiveMinigame('BALLSHOOTER')}
-                    className="flex-shrink-0 bg-blue-50 border-4 border-gray-800 p-4 rounded-2xl hover:bg-blue-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
-                  >
-                    <div className="text-4xl">⚽</div>
-                    <div className="text-xs font-black mt-2 text-gray-800 text-center">Ball Shooter</div>
+              {/* Kitchen Tray Overlay */}
+              {activeMenu === 'KITCHEN' && !gameState.isSleeping && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-full duration-300 z-30 w-full max-w-sm px-4">
+                  <div className="text-[10px] font-black bg-orange-500 text-white px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg mb-[-10px] z-10 border-2 border-white">
+                    Drag food to panda!
                   </div>
-                  <div
-                    onClick={() => setActiveMinigame('BAMBOOCATCHER')}
-                    className="flex-shrink-0 bg-green-50 border-4 border-gray-800 p-4 rounded-2xl hover:bg-green-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
-                  >
-                    <div className="text-4xl">🎋</div>
-                    <div className="text-xs font-black mt-2 text-gray-800 text-center">Bamboo Catcher</div>
-                  </div>
-                  <div
-                    onClick={() => setActiveMinigame('DINOJUMP')}
-                    className="flex-shrink-0 bg-lime-50 border-4 border-gray-800 p-4 rounded-2xl hover:bg-lime-100 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
-                  >
-                    <div className="text-4xl">🦖</div>
-                    <div className="text-xs font-black mt-2 text-gray-800 text-center">Dino Jump</div>
+                  <div className="flex gap-4 p-5 bg-white border-8 border-gray-800 rounded-[2.5rem] shadow-[0_12px_0_#2d2d2d] overflow-x-auto w-full no-scrollbar">
+                    {FOOD_ITEMS.map(food => (
+                      <div
+                        key={food.id}
+                        draggable
+                        onDragStart={() => { setDraggedFood(food); setDraggedToy(null); }}
+                        onDragEnd={() => setDraggedFood(null)}
+                        onClick={() => gameState.feedPet(food)}
+                        className="flex-shrink-0 bg-orange-50 border-4 border-gray-800 p-3 rounded-2xl hover:bg-orange-100 transition-all cursor-grab active:cursor-grabbing hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center"
+                      >
+                        <div className="text-4xl">{food.emoji}</div>
+                        <div className="text-xs font-black mt-2 text-gray-800">${food.cost}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Cosmetic Tray Overlay */}
-            {activeMenu === 'COSMETIC' && !isSleeping && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-full duration-300 z-30 w-full max-w-sm px-4">
-                <div className="text-[10px] font-black bg-pink-500 text-white px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg mb-[-10px] z-10 border-2 border-white">
-                  Tap to wear!
+              {/* Play Menu - Minigames */}
+              {activeMenu === 'PLAY' && !gameState.isSleeping && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-full duration-300 z-30 w-full max-w-sm px-4">
+                  <div className="text-[10px] font-black bg-blue-500 text-white px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg mb-[-10px] z-10 border-2 border-white">
+                    Choose a minigame!
+                  </div>
+                  <div className="flex gap-3 p-5 bg-white border-8 border-gray-800 rounded-[2.5rem] shadow-[0_12px_0_#2d2d2d] overflow-x-auto w-full no-scrollbar">
+                    {[
+                      { id: 'BALLSHOOTER' as MinigameType, emoji: '⚽', name: 'Ball Shooter', bg: 'bg-blue-50 hover:bg-blue-100' },
+                      { id: 'BAMBOOCATCHER' as MinigameType, emoji: '🎋', name: 'Bamboo Catcher', bg: 'bg-green-50 hover:bg-green-100' },
+                      { id: 'DINOJUMP' as MinigameType, emoji: '🦖', name: 'Dino Jump', bg: 'bg-lime-50 hover:bg-lime-100' },
+                      { id: 'MEMORYMATCH' as MinigameType, emoji: '🃏', name: 'Memory', bg: 'bg-purple-50 hover:bg-purple-100' },
+                      { id: 'BAMBOOSLICE' as MinigameType, emoji: '🔪', name: 'Bamboo Slice', bg: 'bg-red-50 hover:bg-red-100' },
+                    ].map(game => (
+                      <div
+                        key={game.id}
+                        onClick={() => setActiveMinigame(game.id)}
+                        className={`flex-shrink-0 ${game.bg} border-4 border-gray-800 p-3 rounded-2xl transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center min-w-[70px]`}
+                      >
+                        <div className="text-3xl">{game.emoji}</div>
+                        <div className="text-[10px] font-black mt-1 text-gray-800 text-center">{game.name}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex gap-4 p-5 bg-white border-8 border-gray-800 rounded-[2.5rem] shadow-[0_12px_0_#2d2d2d] overflow-x-auto w-full no-scrollbar min-h-[120px] items-center">
-                  {ownedCosmetics.length > 0 ? (
-                    ownedCosmetics.map(cosmetic => {
-                      const isEquipped = equippedCosmeticId === cosmetic.objectId;
-                      const isLoading = isEquipping || isUnequipping;
-                      return (
-                        <div
-                          key={cosmetic.objectId}
-                          onClick={() => handleEquipCosmetic(cosmetic.objectId)}
-                          className={`flex-shrink-0 p-3 rounded-2xl border-4 border-gray-800 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center ${isEquipped ? 'bg-green-100' : 'bg-pink-50'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
-                        >
-                          <div className="text-4xl mb-1">✨</div>
-                          <div className="text-[9px] font-black text-center text-gray-800 mb-1 max-w-[60px] line-clamp-2">{cosmetic.fields.name}</div>
-                          <div className={`text-[8px] font-black px-1 py-0.5 rounded border-2 border-gray-800 uppercase ${isEquipped ? 'bg-green-400' : 'bg-pink-400 text-white'}`}>
-                            {isLoading ? 'LOADING...' : isEquipped ? 'ON' : 'OFF'}
+              )}
+
+              {/* Cosmetic Tray Overlay */}
+              {activeMenu === 'COSMETIC' && !gameState.isSleeping && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in slide-in-from-bottom-full duration-300 z-30 w-full max-w-sm px-4">
+                  <div className="text-[10px] font-black bg-pink-500 text-white px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg mb-[-10px] z-10 border-2 border-white">
+                    Tap to wear!
+                  </div>
+                  <div className="flex gap-4 p-5 bg-white border-8 border-gray-800 rounded-[2.5rem] shadow-[0_12px_0_#2d2d2d] overflow-x-auto w-full no-scrollbar min-h-[120px] items-center">
+                    {ownedCosmetics.length > 0 ? (
+                      ownedCosmetics.map(cosmetic => {
+                        const isEquipped = equippedCosmeticId === cosmetic.objectId;
+                        const isLoading = isEquipping || isUnequipping;
+                        return (
+                          <div
+                            key={cosmetic.objectId}
+                            onClick={() => handleEquipCosmetic(cosmetic.objectId)}
+                            className={`flex-shrink-0 p-3 rounded-2xl border-4 border-gray-800 transition-all cursor-pointer hover:-translate-y-2 active:scale-95 shadow-[4px_4px_0px_#2d2d2d] flex flex-col items-center ${isEquipped ? 'bg-green-100' : 'bg-pink-50'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+                          >
+                            <div className="text-4xl mb-1">✨</div>
+                            <div className="text-[9px] font-black text-center text-gray-800 mb-1 max-w-[60px] line-clamp-2">{cosmetic.fields.name}</div>
+                            <div className={`text-[8px] font-black px-1 py-0.5 rounded border-2 border-gray-800 uppercase ${isEquipped ? 'bg-green-400' : 'bg-pink-400 text-white'}`}>
+                              {isLoading ? 'LOADING...' : isEquipped ? 'ON' : 'OFF'}
+                            </div>
                           </div>
+                        );
+                      })
+                    ) : (
+                      <div onClick={() => setShowCosmeticMinter(true)} className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-pink-100 to-purple-100 rounded-2xl border-4 border-dashed border-pink-400 cursor-pointer hover:bg-gradient-to-r hover:from-pink-200 hover:to-purple-200 transition-colors w-full justify-center">
+                        <span className="text-3xl">✨</span>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-gray-600 uppercase leading-none">No cosmetics</span>
+                          <span className="text-xs font-black text-purple-600 uppercase">Mint one!</span>
                         </div>
-                      );
-                    })
-                  ) : (
+                      </div>
+                    )}
                     <div onClick={() => setShowCosmeticMinter(true)} className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-pink-100 to-purple-100 rounded-2xl border-4 border-dashed border-pink-400 cursor-pointer hover:bg-gradient-to-r hover:from-pink-200 hover:to-purple-200 transition-colors w-full justify-center">
                       <span className="text-3xl">✨</span>
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-gray-600 uppercase leading-none">No cosmetics</span>
                         <span className="text-xs font-black text-purple-600 uppercase">Mint one!</span>
                       </div>
                     </div>
-                  )}
-                  <div onClick={() => setShowCosmeticMinter(true)} className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-pink-100 to-purple-100 rounded-2xl border-4 border-dashed border-pink-400 cursor-pointer hover:bg-gradient-to-r hover:from-pink-200 hover:to-purple-200 transition-colors w-full justify-center">
-                    <span className="text-3xl">✨</span>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-black text-purple-600 uppercase">Mint one!</span>
-                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Coins / Profile / Shop / Missions Overlay (Modal) */}
-            {activeMenu === 'COINS' && !isSleeping && (
-              <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in duration-300">
-                <div
-                  className="bg-white rounded-[3rem] border-8 border-gray-800 w-full max-w-lg shadow-[0_20px_0_#2d2d2d] animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col overflow-hidden"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="p-8 pb-4 border-b-4 border-gray-100 flex justify-between items-center bg-white">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-black uppercase text-gray-400 tracking-widest leading-none mb-1">Master Keeper</span>
-                      <h2 className="text-3xl font-game text-gray-800 tracking-tight">@{username}</h2>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="bg-yellow-400 border-4 border-gray-800 rounded-full px-4 py-2 font-game text-xl shadow-[4px_4px_0px_#2d2d2d]">💰 {coins}</div>
-                      <button
-                        onClick={() => setActiveMenu('NONE')}
-                        className="text-2xl font-bold bg-red-100 text-red-600 rounded-full w-12 h-12 flex items-center justify-center border-4 border-gray-800 hover:scale-110 active:scale-95 transition-transform"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
+              {/* Profile / Missions Modal */}
+              {activeMenu === 'COINS' && !gameState.isSleeping && (
+                <ProfileModal
+                  coins={gameState.coins}
+                  username="PandaKeeper"
+                  missionStatuses={gameState.missionStatuses}
+                  ownedCosmetics={ownedCosmetics}
+                  equippedCosmeticId={equippedCosmeticId}
+                  isEquipping={isEquipping}
+                  isUnequipping={isUnequipping}
+                  onClose={() => setActiveMenu('NONE')}
+                  onClaimMission={gameState.claimMission}
+                  onEquipCosmetic={handleEquipCosmetic}
+                  onMintCosmetic={() => {
+                    setActiveMenu('NONE');
+                    setShowCosmeticMinter(true);
+                  }}
+                />
+              )}
 
-                  <div className="p-8 pt-6 overflow-y-auto custom-scrollbar flex-1">
-                    {/* Missions Section */}
-                    <div className="mb-10">
-                      <h3 className="text-2xl font-game mb-6 text-indigo-600 flex items-center gap-3">
-                        <span className="bg-indigo-100 p-2 rounded-2xl border-4 border-gray-800">🎯</span> Daily Missions
-                      </h3>
-                      <div className="space-y-4">
-                        {MISSIONS.map(m => {
-                          const status = missionStatuses.find(s => s.missionId === m.id)!;
-                          const canClaim = status.progress >= m.requirement && !status.claimed;
-                          return (
-                            <div key={m.id} className={`p-5 rounded-[2rem] border-4 border-gray-800 transition-all ${status.claimed ? 'bg-gray-100 opacity-60' : 'bg-indigo-50 shadow-[4px_4px_0px_#2d2d2d]'}`}>
-                              <div className="flex justify-between items-start mb-3 text-left">
-                                <div>
-                                  <h4 className="font-bold text-lg text-gray-800">{m.title}</h4>
-                                  <p className="text-sm text-gray-400 font-medium">{m.description}</p>
-                                </div>
-                                <div className="bg-yellow-300 px-3 py-1 rounded-full border-4 border-gray-800 text-sm font-black whitespace-nowrap">+{m.reward} 💰</div>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <div className="flex-1 bg-white rounded-full h-5 border-4 border-gray-800 overflow-hidden shadow-inner">
-                                  <div
-                                    className="h-full bg-indigo-500 transition-all duration-700 ease-out"
-                                    style={{ width: `${(status.progress / m.requirement) * 100}%` }}
-                                  />
-                                </div>
-                                <button
-                                  disabled={!canClaim}
-                                  onClick={() => claimMission(m.id)}
-                                  className={`px-6 py-2 rounded-2xl border-4 border-gray-800 font-game text-sm transition-all ${status.claimed ? 'bg-gray-400' :
-                                    canClaim ? 'bg-green-400 hover:scale-105 active:scale-90 shadow-[2px_2px_0_#2d2d2d]' : 'bg-gray-200 opacity-50'
-                                    }`}
-                                >
-                                  {status.claimed ? 'Claimed' : 'Claim'}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+              {/* Leaderboard Modal */}
+              {activeMenu === 'LEADERBOARD' && (
+                <LeaderboardModal
+                  topPlayers={topPlayers}
+                  playerStats={playerStats}
+                  evmAccount={evmAccount}
+                  isLoading={isLoadingLeaderboard}
+                  onClose={() => setActiveMenu('NONE')}
+                />
+              )}
 
-                    {/* Shop Section */}
-                    <div className="pb-4">
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-2xl font-game text-pink-500 flex items-center gap-3">
-                          <span className="bg-pink-100 p-2 rounded-2xl border-4 border-gray-800">🛍️</span> Panda Boutique
-                        </h3>
-                        <button
-                          onClick={() => {
-                            setActiveMenu('NONE');
-                            setShowCosmeticMinter(true);
-                          }}
-                          className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-400 border-4 border-gray-800 rounded-2xl font-black text-xs uppercase hover:scale-105 active:scale-95 transition-transform shadow-[2px_2px_0px_#2d2d2d]"
-                        >
-                          ✨ Mint NFT
-                        </button>
-                      </div>
+              {/* Achievements Modal */}
+              {activeMenu === 'ACHIEVEMENTS' && (
+                <AchievementsModal
+                  achievements={achievements}
+                  isLoading={isLoadingAchievements}
+                  isClaiming={isClaimingAchievement}
+                  onClaim={handleClaimAchievement}
+                  onClose={() => setActiveMenu('NONE')}
+                />
+              )}
 
-                      {/* Owned Cosmetics from Blockchain */}
-                      {ownedCosmetics.length > 0 && (
-                        <div className="mb-6">
-                          <h4 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
-                            <span>💎 Your NFT Cosmetics</span>
-                            <span className="bg-blue-200 px-3 py-1 rounded-full text-sm border-2 border-gray-800">{ownedCosmetics.length}</span>
-                          </h4>
-                          <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-blue-50 border-4 border-blue-200 rounded-2xl">
-                            {ownedCosmetics.map(cosmetic => {
-                              const isEquipped = equippedCosmeticId === cosmetic.objectId;
-                              const isLoading = isEquipping || isUnequipping;
-                              return (
-                                <div
-                                  key={cosmetic.objectId}
-                                  onClick={() => handleEquipCosmetic(cosmetic.objectId)}
-                                  className={`
-                                flex flex-col items-center justify-between border-4 border-gray-800 p-4 rounded-[2rem] transition-all cursor-pointer
-                                hover:-translate-y-1 shadow-[4px_4px_0px_#2d2d2d] active:shadow-none active:translate-y-1
-                                ${isEquipped ? 'bg-green-100' : 'bg-white'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}
-                              `}
-                                >
-                                  <div className="text-4xl mb-2">✨</div>
-                                  <div className="w-full">
-                                    <p className="text-center font-bold text-gray-800 mb-2 text-sm line-clamp-2">{cosmetic.fields.name}</p>
-                                    <div className={`text-center py-1 rounded-2xl border-4 border-gray-800 font-black uppercase text-xs ${isEquipped ? 'bg-green-400' : 'bg-blue-400 text-white'
-                                      }`}>
-                                      {isLoading ? 'LOADING...' : isEquipped ? 'Equipped' : 'Equip'}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+              {/* IDRX Wallet Modal */}
+              {activeMenu === 'IDRX' && (
+                <IDRXWallet
+                  balance={idrxBalance}
+                  canClaim={canClaimFaucet}
+                  isClaiming={isClaimingFaucet}
+                  onClaimFaucet={handleClaimFaucet}
+                  onClose={() => setActiveMenu('NONE')}
+                />
+              )}
 
+              {/* Social Modal */}
+              {activeMenu === 'SOCIAL' && (
+                <SocialModal
+                  evmAccount={evmAccount}
+                  onClose={() => setActiveMenu('NONE')}
+                />
+              )}
 
-                    </div>
-                  </div>
+              {gameState.isWashing && (
+                <div className="absolute pointer-events-none inset-0 flex items-center justify-center z-50 overflow-hidden">
+                  {[...Array(12)].map((_, i) => (
+                    <div key={i} className="text-6xl animate-bounce absolute" style={{ left: `${Math.random() * 80 + 10}%`, top: `${Math.random() * 80 + 10}%`, animationDelay: `${i * 0.1}s`, opacity: 0.6 }}>🫧</div>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {isWashing && (
-              <div className="absolute pointer-events-none inset-0 flex items-center justify-center z-50 overflow-hidden">
-                {[...Array(12)].map((_, i) => (
-                  // eslint-disable-next-line react-hooks/purity
-                  <div key={i} className="text-6xl animate-bounce absolute" style={{ left: `${Math.random() * 80 + 10}%`, top: `${Math.random() * 80 + 10}%`, animationDelay: `${i * 0.1}s`, opacity: 0.6 }}>🫧</div>
-                ))}
-              </div>
-            )}
-          </div>
+            <BottomNav
+              activeMenu={activeMenu}
+              isSleeping={gameState.isSleeping}
+              isWashing={gameState.isWashing}
+              onMenuChange={setActiveMenu}
+              onWash={() => { gameState.washPet(); setActiveMenu('NONE'); }}
+              onToggleSleep={gameState.toggleSleep}
+            />
 
-          {/* Bottom Navigation */}
-          <div className="p-6 bg-white/40 backdrop-blur-md border-t-4 border-gray-800 flex justify-around items-center z-40">
-            <NavButton icon="🎮" label="Play" onClick={() => setActiveMenu(activeMenu === 'PLAY' ? 'NONE' : 'PLAY')} active={activeMenu === 'PLAY'} />
-            <NavButton icon="🥘" label="Kitchen" onClick={() => setActiveMenu(activeMenu === 'KITCHEN' ? 'NONE' : 'KITCHEN')} active={activeMenu === 'KITCHEN'} />
-            <NavButton icon="👗" label="Cosmetic" onClick={() => setActiveMenu(activeMenu === 'COSMETIC' ? 'NONE' : 'COSMETIC')} active={activeMenu === 'COSMETIC'} />
-            <NavButton icon="🧼" label="Wash" onClick={washPet} active={isWashing} />
-            <NavButton icon={isSleeping ? "☀️" : "🌙"} label={isSleeping ? "Wake" : "Sleep"} onClick={toggleSleep} active={isSleeping} />
-          </div>
-
-          {isThinking && <div className="absolute bottom-32 right-12 text-5xl animate-pulse z-30">🐼💭</div>}
-        </>
-      )}
+            {gameState.isThinking && <div className="absolute bottom-32 right-12 text-5xl animate-pulse z-30">🐼💭</div>}
+          </>
+        )}
       </div>
     </>
   );
 };
-
-interface NavButtonProps {
-  icon: string;
-  label: string;
-  onClick: () => void;
-  active: boolean;
-}
-
-const NavButton: React.FC<NavButtonProps> = ({ icon, label, onClick, active }) => (
-  <button onClick={onClick} className={`flex flex-col items-center p-3 rounded-2xl transition-all duration-300 border-4 ${active ? 'bg-white border-gray-800 -translate-y-4 shadow-[0_8px_0_#2d2d2d]' : 'bg-white/40 border-transparent hover:bg-white/60 hover:-translate-y-1 active:translate-y-0'}`}>
-    <span className="text-3xl">{icon}</span>
-    <span className="text-xs font-black mt-1 uppercase text-gray-800">{label}</span>
-  </button>
-);
 
 export default App;

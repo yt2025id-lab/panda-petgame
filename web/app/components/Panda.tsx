@@ -156,6 +156,25 @@ const Panda: React.FC<PandaProps> = ({
           {heart.type}
         </div>
       ))}
+      {/* Evolution Stage Indicator */}
+      {stats.level >= 5 && (
+        <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs font-black px-2 py-1 rounded-full border-2 border-gray-800 z-10"
+          style={{
+            background: stats.level >= 30 ? 'linear-gradient(135deg, #FFD700, #FF6B6B)' :
+              stats.level >= 20 ? '#FFD700' :
+              stats.level >= 10 ? '#C0C0C0' : '#CD7F32',
+            color: stats.level >= 20 ? '#2D2D2D' : 'white',
+          }}>
+          {stats.level >= 30 ? 'LEGENDARY' : stats.level >= 20 ? 'ADULT' : stats.level >= 10 ? 'TEEN' : 'CHILD'}
+        </div>
+      )}
+
+      {/* Golden aura for Elder/Legendary */}
+      {stats.level >= 30 && !isSleeping && (
+        <div className="absolute inset-[-20px] rounded-full animate-pulse opacity-30"
+          style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.6) 0%, transparent 70%)' }} />
+      )}
+
       <svg
         width="240"
         height="260"
@@ -163,19 +182,43 @@ const Panda: React.FC<PandaProps> = ({
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="breathe-animation"
+        style={{
+          transform: stats.level >= 20 ? 'scale(1.1)' : stats.level >= 10 ? 'scale(1.05)' : 'scale(1)',
+          filter: stats.level >= 30 ? 'drop-shadow(0 0 8px rgba(255,215,0,0.5))' : 'none',
+        }}
       >
         {/* Ears */}
-        <circle cx="60" cy="70" r="35" fill="#2D2D2D" className={`ear-left ${isWiggling ? 'ear-wiggle-left' : ''} smooth-transition`} />
-        <circle cx="180" cy="70" r="35" fill="#2D2D2D" className={`ear-right ${isWiggling ? 'ear-wiggle-right' : ''} smooth-transition`} />
+        <circle cx="60" cy="70" r="35" fill={stats.level >= 30 ? '#1a1a2e' : '#2D2D2D'} className={`ear-left ${isWiggling ? 'ear-wiggle-left' : ''} smooth-transition`} />
+        <circle cx="180" cy="70" r="35" fill={stats.level >= 30 ? '#1a1a2e' : '#2D2D2D'} className={`ear-right ${isWiggling ? 'ear-wiggle-right' : ''} smooth-transition`} />
+
+        {/* Ear inner glow for evolved pandas */}
+        {stats.level >= 10 && (
+          <>
+            <circle cx="60" cy="70" r="15" fill={stats.level >= 30 ? '#FFD700' : stats.level >= 20 ? '#FF69B4' : '#87CEEB'} fillOpacity="0.4" />
+            <circle cx="180" cy="70" r="15" fill={stats.level >= 30 ? '#FFD700' : stats.level >= 20 ? '#FF69B4' : '#87CEEB'} fillOpacity="0.4" />
+          </>
+        )}
 
         {/* Body */}
         <path
           d="M20,160 C20,100 80,60 120,60 C160,60 220,100 220,160 C220,230 180,260 120,260 C60,260 20,230 20,160 Z"
-          fill="white"
-          stroke={isOver ? "#4CAF50" : "#2D2D2D"}
+          fill={stats.level >= 30 ? '#FFFEF2' : 'white'}
+          stroke={isOver ? "#4CAF50" : stats.level >= 30 ? '#B8860B' : '#2D2D2D'}
           strokeWidth={isOver ? "10" : "6"}
           className="smooth-transition"
         />
+
+        {/* Body markings for evolved pandas */}
+        {stats.level >= 20 && (
+          <path
+            d="M80,200 Q120,180 160,200"
+            stroke={stats.level >= 30 ? '#FFD700' : '#E0E0E0'}
+            strokeWidth="3"
+            fill="none"
+            strokeLinecap="round"
+            opacity="0.5"
+          />
+        )}
 
         {/* Eye Patches */}
         <ellipse cx="85" cy="140" rx="30" ry="35" fill="#2D2D2D" className="smooth-transition" />
@@ -251,12 +294,20 @@ const Panda: React.FC<PandaProps> = ({
           <path d="M60,200 Q120,240 180,200" fill="none" stroke="#FFD700" strokeWidth="6" strokeLinecap="round" />
         )}
 
-        {/* Blush */}
+        {/* Blush - bigger and more colorful for evolved pandas */}
         {!isSleeping && (
           <>
-            <circle cx="60" cy="165" r="10" fill="#FFCDD2" fillOpacity="0.6" />
-            <circle cx="180" cy="165" r="10" fill="#FFCDD2" fillOpacity="0.6" />
+            <circle cx="60" cy="165" r={stats.level >= 5 ? 14 : 10} fill={stats.level >= 30 ? '#FFD700' : '#FFCDD2'} fillOpacity={stats.level >= 10 ? 0.8 : 0.6} />
+            <circle cx="180" cy="165" r={stats.level >= 5 ? 14 : 10} fill={stats.level >= 30 ? '#FFD700' : '#FFCDD2'} fillOpacity={stats.level >= 10 ? 0.8 : 0.6} />
           </>
+        )}
+
+        {/* Star markings for legendary pandas */}
+        {stats.level >= 30 && (
+          <g opacity="0.6">
+            <text x="45" y="110" fontSize="14" fill="#FFD700">&#9733;</text>
+            <text x="175" y="110" fontSize="14" fill="#FFD700">&#9733;</text>
+          </g>
         )}
 
         {/* Cosmetics: Hats */}
